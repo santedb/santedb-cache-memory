@@ -53,12 +53,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Docker\MemCacheFeature.xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Docker\MemCacheFeature.xml" />
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />

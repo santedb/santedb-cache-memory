@@ -13,10 +13,10 @@ namespace SanteDB.Caching.Memory.Docker
     /// <summary>
     /// Caching feature
     /// </summary>
-    public class RamCachingFeature : IDockerFeature
+    public class RamCachingDockerFeature : IDockerFeature
     {
 
-        public const string MaxAgeSetting = "EXPIRE";
+        public const string MaxAgeSetting = "TTL";
 
         /// <summary>
         /// Get the id of this feature
@@ -46,7 +46,7 @@ namespace SanteDB.Caching.Memory.Docker
             // Age
             if (!settings.TryGetValue(MaxAgeSetting, out string maxAge))
             {
-                maxAge = "PT1H";
+                maxAge = "0.1:0:0";
             }
 
             // Parse
@@ -59,7 +59,11 @@ namespace SanteDB.Caching.Memory.Docker
             var memSetting = configuration.GetSection<MemoryCacheConfigurationSection>();
             if (memSetting == null)
             {
-                memSetting = DockerFeatureUtils.LoadConfigurationResource<MemoryCacheConfigurationSection>("SanteDB.Caching.Memory.Docker.MemCacheFeature.xml");
+                memSetting = new MemoryCacheConfigurationSection()
+                {
+                    AutoSubscribeTypes = true,
+                    MaxCacheSize = 10000
+                };
                 configuration.AddSection(memSetting);
             }
             memSetting.MaxQueryAge = memSetting.MaxCacheAge = (long)maxAgeTs.TotalSeconds;

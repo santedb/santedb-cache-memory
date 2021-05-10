@@ -226,7 +226,7 @@ namespace SanteDB.Caching.Memory
         {
             var retVal = this.m_cache.Get(key.ToString());
             if (retVal is TData dat)
-                return dat;
+                return (TData)dat.Clone();
             else
             {
                 this.Remove(key); // wrong type - 
@@ -240,7 +240,13 @@ namespace SanteDB.Caching.Memory
         /// </summary>
         public object GetCacheItem(Guid key)
         {
-            return this.m_cache.Get(key.ToString());
+            var retVal = this.m_cache.Get(key.ToString());
+            if (retVal is IdentifiedData id)
+            {
+                return id.Clone();
+            }
+            else
+                return retVal;
         }
 
         /// <summary>

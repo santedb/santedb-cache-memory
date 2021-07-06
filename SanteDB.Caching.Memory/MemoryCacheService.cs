@@ -263,7 +263,17 @@ namespace SanteDB.Caching.Memory
 	        }
 
             var exist = this.m_cache.Get(data.Key.ToString());
-            this.m_cache.Set(data.Key.ToString(), data.Clone(), DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge));
+
+            var dataClone = data.Clone();
+            if (dataClone is ITaggable taggable)
+            {
+                foreach (var tag in taggable.Tags.Where(o => o.TagKey.StartsWith("$")).ToArray())
+                {
+                    taggable.RemoveTag(tag.TagKey);
+                }
+            }
+
+            this.m_cache.Set(data.Key.ToString(), dataClone, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge));
 
             // If this is a relationship class we remove the source entity from the cache
             if (data is ITargetedAssociation targetedAssociation)

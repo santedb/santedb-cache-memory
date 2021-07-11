@@ -57,7 +57,7 @@ namespace SanteDB.Caching.Memory
         private EventHandler<ModelMapEventArgs> m_mappedHandler = null;
 
         // Memory cache configuration
-        private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
+        private MemoryCacheConfigurationSection m_configuration;
         private Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
 	    private static object s_lock = new object();
         private MemoryCache m_cache;
@@ -96,7 +96,19 @@ namespace SanteDB.Caching.Memory
         public event EventHandler<DataCacheEventArgs> Updated;
         public event EventHandler<DataCacheEventArgs> Removed;
 
+        /// <summary>
+        /// Creates a new memory cache service
+        /// </summary>
+        public MemoryCacheService(IConfigurationManager configurationManager)
+        {
+            this.m_configuration = configurationManager.GetSection<MemoryCacheConfigurationSection>();
 
+            var config = new NameValueCollection();
+            config.Add("cacheMemoryLimitMegabytes", this.m_configuration.MaxCacheSize.ToString());
+            config.Add("pollingInterval", "00:05:00");
+
+            this.m_cache = new MemoryCache("santedb", config);
+        }
 
         /// <summary>
         /// Start the service
@@ -112,13 +124,6 @@ namespace SanteDB.Caching.Memory
             this.Added += (o, e) => this.EnsureCacheConsistency(e);
             this.Updated += (o, e) => this.EnsureCacheConsistency(e);
             this.Removed += (o, e) => this.EnsureCacheConsistency(e);
-
-            var config = new NameValueCollection();
-            config.Add("cacheMemoryLimitMegabytes", this.m_configuration.MaxCacheSize.ToString());
-            config.Add("pollingInterval", "00:05:00");
-
-            this.m_cache = new MemoryCache("santedb", config);
-
 
             // handles when a item is being mapped
             this.m_mappingHandler = (o, e) =>
@@ -136,8 +141,6 @@ namespace SanteDB.Caching.Memory
             ModelMapper.MappingToModel += this.m_mappingHandler;
             ModelMapper.MappedToModel += this.m_mappedHandler;
             
-
-           
             // Look for non-cached types
             foreach (var itm in typeof(IdentifiedData).Assembly.GetTypes().Where(o => o.GetCustomAttribute<NonCachedAttribute>() != null || o.GetCustomAttribute<XmlRootAttribute>() == null))
                 this.m_nonCached.Add(itm);

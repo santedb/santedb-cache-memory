@@ -103,8 +103,18 @@ namespace SanteDB.Caching.Memory
         {
             this.m_configuration = configurationManager.GetSection<MemoryCacheConfigurationSection>();
 
+            if(this.m_configuration == null)
+            {
+                this.m_configuration = new MemoryCacheConfigurationSection()
+                {
+                    AutoSubscribeTypes = true,
+                    MaxCacheAge = 60000,
+                    MaxCacheSize = 1024,
+                    MaxQueryAge = 60000
+                };
+            }
             var config = new NameValueCollection();
-            config.Add("cacheMemoryLimitMegabytes", this.m_configuration.MaxCacheSize.ToString());
+            config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString());
             config.Add("pollingInterval", "00:05:00");
 
             this.m_cache = new MemoryCache("santedb", config);

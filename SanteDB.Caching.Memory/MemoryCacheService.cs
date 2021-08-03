@@ -278,6 +278,7 @@ namespace SanteDB.Caching.Memory
             var exist = this.m_cache.Get(data.Key.ToString());
 
             var dataClone = data.Clone();
+            dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
             if (dataClone is ITaggable taggable)
             {
                 foreach (var tag in taggable.Tags.Where(o => o.TagKey.StartsWith("$")).ToArray())

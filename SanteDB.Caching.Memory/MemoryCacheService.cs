@@ -281,6 +281,13 @@ namespace SanteDB.Caching.Memory
             dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
             if (dataClone is ITaggable taggable)
             {
+                // TODO: Put this as a constant
+                // Don't cache generated data
+                if(taggable.GetTag("$generated") == "true")
+                {
+                    return;
+                }
+
                 foreach (var tag in taggable.Tags.Where(o => o.TagKey.StartsWith("$")).ToArray())
                 {
                     taggable.RemoveTag(tag.TagKey);

@@ -15,6 +15,7 @@ namespace SanteDB.Caching.Memory
     /// <summary>
     /// REDIS ad-hoc cache
     /// </summary>
+    [ServiceProvider("Memory Ad-Hoc Cache Service")]
     public class MemoryAdhocCacheService : IAdhocCacheService
     {
 

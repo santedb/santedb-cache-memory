@@ -86,5 +86,13 @@ namespace SanteDB.Caching.Memory
         {
             return this.m_cache.Remove(key) != null;
         }
+
+        /// <summary>
+        /// Return true if the cache item exists in cache
+        /// </summary>
+        public bool Exists(string key)
+        {
+            return this.m_cache.Contains(key);
+        }
     }
 }

@@ -61,7 +61,6 @@ namespace SanteDB.Caching.Memory.Docker
             {
                 memSetting = new MemoryCacheConfigurationSection()
                 {
-                    AutoSubscribeTypes = true,
                     MaxCacheSize = 10000
                 };
                 configuration.AddSection(memSetting);

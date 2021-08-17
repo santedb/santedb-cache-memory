@@ -107,7 +107,6 @@ namespace SanteDB.Caching.Memory
             {
                 this.m_configuration = new MemoryCacheConfigurationSection()
                 {
-                    AutoSubscribeTypes = true,
                     MaxCacheAge = 60000,
                     MaxCacheSize = 1024,
                     MaxQueryAge = 60000

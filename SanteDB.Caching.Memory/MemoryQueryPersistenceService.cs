@@ -37,7 +37,7 @@ namespace SanteDB.Caching.Memory
     /// <summary>
     /// Represents a simple query persistence service that uses local memory for query continuation
     /// </summary>
-    [ServiceProvider("Memory-Based Query Persistence Service")]
+    [ServiceProvider("Memory-Based Query Persistence Service", Configuration = typeof(MemoryCacheConfigurationSection))]
     public class MemoryQueryPersistenceService : SanteDB.Core.Services.IQueryPersistenceService
     {
         /// <summary>

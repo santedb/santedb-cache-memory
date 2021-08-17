@@ -18,6 +18,7 @@
  */
 using SanteDB.Core.Configuration;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Xml.Serialization;
 
 namespace SanteDB.Caching.Memory.Configuration
@@ -34,37 +35,24 @@ namespace SanteDB.Caching.Memory.Configuration
         /// </summary>
         public MemoryCacheConfigurationSection()
         {
-            this.Types = new List<TypeCacheConfigurationInfo>();
         }
-
-        /// <summary>
-        /// Autosubscribe types
-        /// </summary>
-        [XmlAttribute("autoSubscribe")]
-        public bool AutoSubscribeTypes { get; set; }
-
-        /// <summary>
-        /// Type cache configuration information 
-        /// </summary>
-        [XmlArray("types"), XmlArrayItem("add")]
-        public List<TypeCacheConfigurationInfo> Types { get; set; }
 
         /// <summary>
         /// Gets or sets the items in the cache
         /// </summary>
-        [XmlAttribute("maxSize")]
+        [XmlAttribute("maxSize"), DisplayName("Max Cache Size (MB)"), Description("Sets the maximum size of the in-process memory cache")]
         public int MaxCacheSize { get; set; }
 
         /// <summary>
         /// Gets or sets the maximum age of items in the cache
         /// </summary>
-        [XmlAttribute("maxAge")]
+        [XmlAttribute("maxAge"), DisplayName("Max Cache Age (S)"), Description("Sets the maximum length of time that an object may remain in the in-process memory cache before it is unoladed")]
         public long MaxCacheAge { get; set; }
 
         /// <summary>
         /// Max query age
         /// </summary>
-        [XmlAttribute("maxQueryAge")]
+        [XmlAttribute("maxQueryAge"), DisplayName("Max Query Age (S)"), Description("Sets the maximum length of time (in seconds) a stateful query is retained in the in-process memory cache")]
         public long MaxQueryAge { get; set; }
 
     }

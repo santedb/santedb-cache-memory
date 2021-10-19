@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
@@ -54,8 +55,9 @@ namespace SanteDB.Caching.Memory
 
         // Memory cache configuration
         private MemoryCacheConfigurationSection m_configuration;
+
         private Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
-	    private static object s_lock = new object();
+        private static object s_lock = new object();
         private MemoryCache m_cache;
 
         // Non cached types
@@ -65,20 +67,26 @@ namespace SanteDB.Caching.Memory
         /// Service is starting
         /// </summary>
         public event EventHandler Started;
+
         /// <summary>
         /// Service has started
         /// </summary>
         public event EventHandler Starting;
+
         /// <summary>
         /// Service is stopping
         /// </summary>
         public event EventHandler Stopped;
+
         /// <summary>
         /// Service has stopped
         /// </summary>
         public event EventHandler Stopping;
+
         public event EventHandler<DataCacheEventArgs> Added;
+
         public event EventHandler<DataCacheEventArgs> Updated;
+
         public event EventHandler<DataCacheEventArgs> Removed;
 
         /// <summary>
@@ -88,7 +96,7 @@ namespace SanteDB.Caching.Memory
         {
             this.m_configuration = configurationManager.GetSection<MemoryCacheConfigurationSection>();
 
-            if(this.m_configuration == null)
+            if (this.m_configuration == null)
             {
                 this.m_configuration = new MemoryCacheConfigurationSection()
                 {
@@ -101,14 +109,12 @@ namespace SanteDB.Caching.Memory
             config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString());
             config.Add("pollingInterval", "00:05:00");
 
-
             // Look for non-cached types
             foreach (var itm in typeof(IdentifiedData).Assembly.GetTypes().Where(o => o.GetCustomAttribute<NonCachedAttribute>() != null || o.GetCustomAttribute<XmlRootAttribute>() == null))
                 this.m_nonCached.Add(itm);
 
             this.m_cache = new MemoryCache("santedb", config);
         }
-
 
         /// <summary>
         /// Gets the specified cache item
@@ -121,7 +127,7 @@ namespace SanteDB.Caching.Memory
                 return (TData)dat.Clone();
             else
             {
-                this.Remove(key); // wrong type - 
+                this.Remove(key); // wrong type -
                 return default(TData);
             }
         }
@@ -129,22 +135,22 @@ namespace SanteDB.Caching.Memory
         /// <summary>
         /// Get cache key regardless of type
         /// </summary>
-        public object GetCacheItem(Guid key) { 
+        public object GetCacheItem(Guid key) {
             return this.m_cache.Get(key.ToString());
         }
 
         /// <summary>
         /// Add the specified item to the memory cache
         /// </summary>
-        public void Add(IdentifiedData data) 
+        public void Add(IdentifiedData data)
         {
-			// if the data is null, continue
-	        if (data == null || !data.Key.HasValue ||
+            // if the data is null, continue
+            if (data == null || !data.Key.HasValue ||
                     (data as BaseEntityData)?.ObsoletionTime.HasValue == true ||
                     this.m_nonCached.Contains(data.GetType()))
-	        {
-		        return;
-	        }
+            {
+                return;
+            }
 
             var cacheKey = data.Key.Value.ToString();
             var exist = this.m_cache.Get(cacheKey);
@@ -155,7 +161,7 @@ namespace SanteDB.Caching.Memory
             {
                 // TODO: Put this as a constant
                 // Don't cache generated data
-                if(taggable.GetTag("$generated") == "true")
+                if (taggable.GetTag("$generated") == "true")
                 {
                     return;
                 }
@@ -177,7 +183,6 @@ namespace SanteDB.Caching.Memory
             else if (data is ISimpleAssociation simpleAssociation)
                 this.m_cache.Remove(simpleAssociation.SourceEntityKey.ToString());
 
-
             if (exist != null)
                 this.Updated?.Invoke(this, new DataCacheEventArgs(data));
             else
@@ -192,9 +197,26 @@ namespace SanteDB.Caching.Memory
             var exist = this.m_cache.Get(key.ToString());
             if (exist != null)
             {
-                this.m_cache.Remove(key.ToString());
-                this.Removed?.Invoke(this, new DataCacheEventArgs(exist));
+                this.Remove(exist as IdentifiedData);
             }
+        }
+
+        /// <summary>
+        /// Remove the specified entry
+        /// </summary>
+        /// <param name="entry"></param>
+        public void Remove(IdentifiedData entry)
+        {
+            this.m_cache.Remove(entry.Key.ToString());
+            if (entry is ISimpleAssociation sa)
+            {
+                this.Remove(sa.SourceEntityKey.GetValueOrDefault());
+                if (sa is ITargetedAssociation ta)
+                {
+                    this.Remove(ta.TargetEntityKey.GetValueOrDefault());
+                }
+            }
+            this.Removed?.Invoke(this, new DataCacheEventArgs(entry));
         }
 
         /// <summary>
@@ -203,7 +225,6 @@ namespace SanteDB.Caching.Memory
         public void Clear()
         {
             this.m_cache.Trim(100);
-            
         }
 
         /// <summary>
@@ -217,6 +238,6 @@ namespace SanteDB.Caching.Memory
         /// <summary>
         /// Get the size of the cache in entries
         /// </summary>
-        public long Size {  get { return this.m_cache.GetLastSize(); } }
+        public long Size { get { return this.m_cache.GetLastSize(); } }
     }
 }

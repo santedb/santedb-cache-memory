@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
@@ -34,8 +35,6 @@ using System.Timers;
 
 namespace SanteDB.Caching.Memory
 {
-
-
     /// <summary>
     /// Represents a simple query persistence service that uses local memory for query continuation
     /// </summary>
@@ -87,7 +86,8 @@ namespace SanteDB.Caching.Memory
         }
 
         //  trace source
-        private Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
+        private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
+
         private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
         private MemoryCache m_cache;
 
@@ -121,7 +121,7 @@ namespace SanteDB.Caching.Memory
             else if (cacheResult.Value is MemoryQueryInfo retVal)
             {
                 this.m_tracer.TraceVerbose("Updating query {0} ({1} results)", queryId, results.Count());
-                lock (retVal.Results) 
+                lock (retVal.Results)
                     retVal.Results.AddRange(results.Where(o => !retVal.Results.Contains(o)).Select(o => o));
                 retVal.TotalResults = totalResults;
                 this.m_cache.Set(cacheResult.Key, cacheResult.Value, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxQueryAge));
@@ -176,7 +176,6 @@ namespace SanteDB.Caching.Memory
         /// </summary>
         public bool RegisterQuerySet(Guid queryId, IEnumerable<Guid> results, object tag, int totalResults)
         {
-
             this.m_cache.Set($"qry.{queryId}", new MemoryQueryInfo()
             {
                 QueryTag = tag,
@@ -185,7 +184,6 @@ namespace SanteDB.Caching.Memory
                 Key = queryId
             }, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxQueryAge));
             return true;
-
         }
 
         /// <summary>
@@ -193,7 +191,7 @@ namespace SanteDB.Caching.Memory
         /// </summary>
         public Guid FindQueryId(object queryTag)
         {
-            return this.m_cache.Select(o=>o.Value).OfType<MemoryQueryInfo>().FirstOrDefault(o => o.QueryTag.Equals(queryTag))?.Key ?? Guid.Empty;
+            return this.m_cache.Select(o => o.Value).OfType<MemoryQueryInfo>().FirstOrDefault(o => o.QueryTag.Equals(queryTag))?.Key ?? Guid.Empty;
         }
 
         /// <summary>
@@ -205,7 +203,5 @@ namespace SanteDB.Caching.Memory
             if (cacheResult is MemoryQueryInfo retVal)
                 retVal.QueryTag = tagValue;
         }
-
-      
     }
 }

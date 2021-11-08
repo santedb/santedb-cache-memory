@@ -56,7 +56,7 @@ namespace SanteDB.Caching.Memory
         // Memory cache configuration
         private MemoryCacheConfigurationSection m_configuration;
 
-        private Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
+        private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
         private static object s_lock = new object();
         private MemoryCache m_cache;
 
@@ -135,7 +135,8 @@ namespace SanteDB.Caching.Memory
         /// <summary>
         /// Get cache key regardless of type
         /// </summary>
-        public object GetCacheItem(Guid key) {
+        public object GetCacheItem(Guid key)
+        {
             return this.m_cache.Get(key.ToString());
         }
 
@@ -238,6 +239,7 @@ namespace SanteDB.Caching.Memory
         /// <summary>
         /// Get the size of the cache in entries
         /// </summary>
-        public long Size { get { return this.m_cache.GetLastSize(); } }
+        public long Size
+        { get { return this.m_cache.GetLastSize(); } }
     }
 }

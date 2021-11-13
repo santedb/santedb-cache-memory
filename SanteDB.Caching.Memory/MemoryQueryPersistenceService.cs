@@ -203,5 +203,13 @@ namespace SanteDB.Caching.Memory
             if (cacheResult is MemoryQueryInfo retVal)
                 retVal.QueryTag = tagValue;
         }
+
+        /// <summary>
+        /// Abort the query result set
+        /// </summary>
+        public void AbortQuerySet(Guid queryId)
+        {
+            this.m_cache.Remove($"qry.{queryId}");
+        }
     }
 }

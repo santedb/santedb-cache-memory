@@ -18,18 +18,21 @@
  * User: fyfej
  * Date: 2021-8-5
  */
+
+using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Threading;
 using NUnit.Framework;
 using SanteDB.Core;
 using SanteDB.Core.Model.DataTypes;
 using SanteDB.Core.Services;
 using SanteDB.Core.TestFramework;
-using System;
-using System.Linq;
-using System.Threading;
 
-namespace SanteDB.Caching.Memory.Tests
+namespace SanteDB.Caching.Memory.Test
 {
-    [TestFixture(TestName = "Memory Cache Tests", Category = "Caching")]
+    [ExcludeFromCodeCoverage]
+    [TestFixture(Category = "Caching")]
     public class MemoryCacheTests
     {
 

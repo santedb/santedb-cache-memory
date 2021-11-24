@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
@@ -34,21 +35,21 @@ using System.Timers;
 
 namespace SanteDB.Caching.Memory
 {
-
-
     /// <summary>
-    /// Represents a simple query persistence service that uses local memory for query continuation
+    /// An implementation of the <see cref="IQueryPersistenceService"/> which uses in-process memory to store query result sets
     /// </summary>
+    /// <remarks>
+    /// <para>This implementation of the query persistence service uses the <see cref="System.Runtime.Caching.MemoryCache"/> implementation to store
+    /// stateful query results (for consistent pagination) for a period of time in transient place.</para>
+    /// </remarks>
     [ServiceProvider("Memory-Based Query Persistence Service", Configuration = typeof(MemoryCacheConfigurationSection))]
     public class MemoryQueryPersistenceService : SanteDB.Core.Services.IQueryPersistenceService
     {
-        /// <summary>
-        /// Gets the service name
-        /// </summary>
+        /// <inheritdoc/>
         public string ServiceName => "Memory-Based Query Persistence / Continuation Service";
 
         /// <summary>
-        /// Memory based query information
+        /// Memory based query information - metadata about the query stored in the cache
         /// </summary>
         public class MemoryQueryInfo
         {
@@ -88,7 +89,11 @@ namespace SanteDB.Caching.Memory
 
         //  trace source
         private Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
+
+        // Configuration
         private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
+
+        // Cache backing
         private MemoryCache m_cache;
 
         /// <summary>
@@ -102,17 +107,13 @@ namespace SanteDB.Caching.Memory
             this.m_cache = new MemoryCache("santedb.query", config);
         }
 
-        /// <summary>
-        /// Clear
-        /// </summary>
+        /// <inheritdoc/>
         public void Clear()
         {
             this.m_cache.Trim(100);
         }
 
-        /// <summary>
-        /// Add results to id set
-        /// </summary>
+        /// <inheritdoc/>
         public void AddResults(Guid queryId, IEnumerable<Guid> results, int totalResults)
         {
             var cacheResult = this.m_cache.GetCacheItem($"qry.{queryId}");
@@ -121,7 +122,7 @@ namespace SanteDB.Caching.Memory
             else if (cacheResult.Value is MemoryQueryInfo retVal)
             {
                 this.m_tracer.TraceVerbose("Updating query {0} ({1} results)", queryId, results.Count());
-                lock (retVal.Results) 
+                lock (retVal.Results)
                     retVal.Results.AddRange(results.Where(o => !retVal.Results.Contains(o)).Select(o => o));
                 retVal.TotalResults = totalResults;
                 this.m_cache.Set(cacheResult.Key, cacheResult.Value, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxQueryAge));
@@ -129,9 +130,7 @@ namespace SanteDB.Caching.Memory
             }
         }
 
-        /// <summary>
-        /// Get query results
-        /// </summary>
+        /// <inheritdoc/>
         public IEnumerable<Guid> GetQueryResults(Guid queryId, int startRecord, int nRecords)
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
@@ -141,9 +140,7 @@ namespace SanteDB.Caching.Memory
             return null;
         }
 
-        /// <summary>
-        /// Get query tag
-        /// </summary>
+        /// <inheritdoc/>
         public object GetQueryTag(Guid queryId)
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
@@ -152,17 +149,13 @@ namespace SanteDB.Caching.Memory
             return null;
         }
 
-        /// <summary>
-        /// True if registered
-        /// </summary>
+        /// <inheritdoc/>
         public bool IsRegistered(Guid queryId)
         {
             return this.m_cache.Contains($"qry.{queryId}");
         }
 
-        /// <summary>
-        /// Get total results
-        /// </summary>
+        /// <inheritdoc/>
         public long QueryResultTotalQuantity(Guid queryId)
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
@@ -171,12 +164,9 @@ namespace SanteDB.Caching.Memory
             return 0;
         }
 
-        /// <summary>
-        /// Register a query
-        /// </summary>
+        /// <inheritdoc/>
         public bool RegisterQuerySet(Guid queryId, IEnumerable<Guid> results, object tag, int totalResults)
         {
-
             this.m_cache.Set($"qry.{queryId}", new MemoryQueryInfo()
             {
                 QueryTag = tag,
@@ -185,27 +175,20 @@ namespace SanteDB.Caching.Memory
                 Key = queryId
             }, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxQueryAge));
             return true;
-
         }
 
-        /// <summary>
-        /// Find the query ID by the tagged value of that query
-        /// </summary>
+        /// <inheritdoc/>
         public Guid FindQueryId(object queryTag)
         {
-            return this.m_cache.Select(o=>o.Value).OfType<MemoryQueryInfo>().FirstOrDefault(o => o.QueryTag.Equals(queryTag))?.Key ?? Guid.Empty;
+            return this.m_cache.Select(o => o.Value).OfType<MemoryQueryInfo>().FirstOrDefault(o => o.QueryTag.Equals(queryTag))?.Key ?? Guid.Empty;
         }
 
-        /// <summary>
-        /// Set the query tag
-        /// </summary>
+        /// <inheritdoc/>
         public void SetQueryTag(Guid queryId, object tagValue)
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
                 retVal.QueryTag = tagValue;
         }
-
-      
     }
 }

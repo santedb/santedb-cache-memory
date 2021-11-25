@@ -180,26 +180,6 @@ namespace SanteDB.Caching.Memory
             }
         }
 
-        /// <summary>
-        /// Either gets or updates the existing cache item
-        /// </summary>
-        private void GetOrUpdateCacheItem(ModelMapEventArgs e)
-        {
-            var cacheItem = this.m_cache.Get(e.Key.ToString());
-            if (cacheItem == null)
-                this.Add(e.ModelObject);
-            else
-            {
-                // Obsolete?
-                var cVer = cacheItem as IVersionedEntity;
-                var dVer = e.ModelObject as IVersionedEntity;
-                if (cVer?.VersionSequence < dVer?.VersionSequence) // Cache is older than this item
-                    this.Add(dVer as IdentifiedData);
-                e.ModelObject = cacheItem as IdentifiedData;
-                e.Cancel = true;
-            }
-        }
-
         /// <inheritdoc/>
         public bool Stop()
         {
@@ -317,6 +297,14 @@ namespace SanteDB.Caching.Memory
         public void Clear()
         {
             this.m_cache.Trim(100);
+        }
+
+        /// <summary>
+        /// Determines if the object exists
+        /// </summary>
+        public bool Exists<T>(Guid id)
+        {
+            return this.m_cache.Get(id.ToString()) is T;
         }
 
         /// <inheritdoc/>

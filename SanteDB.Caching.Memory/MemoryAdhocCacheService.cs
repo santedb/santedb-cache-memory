@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
@@ -33,12 +34,16 @@ using System.Threading.Tasks;
 namespace SanteDB.Caching.Memory
 {
     /// <summary>
-    /// REDIS ad-hoc cache
+    /// An implementation of <see cref="IAdhocCacheService"/> which uses the in-process memory cache
     /// </summary>
+    /// <remarks>
+    /// <para>This implementation of the adhoc caching service uses in-process memory to store unstructured data
+    /// which is commonly used in the application.</para>
+    /// </remarks>
+    /// <seealso cref="IAdhocCacheService"/>
     [ServiceProvider("Memory Ad-Hoc Cache Service", Configuration = typeof(MemoryCacheConfigurationSection))]
     public class MemoryAdhocCacheService : IAdhocCacheService
     {
-
         /// <summary>
         /// Gets the service name
         /// </summary>
@@ -46,11 +51,15 @@ namespace SanteDB.Caching.Memory
 
         //  trace source
         private Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
+
+        // Configuration reference
         private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
+
+        // The backing cache
         private MemoryCache m_cache;
 
         /// <summary>
-        /// Adhoc cache init
+        /// Ad-hoc cache initialization
         /// </summary>
         public MemoryAdhocCacheService()
         {
@@ -60,7 +69,6 @@ namespace SanteDB.Caching.Memory
 
             this.m_cache = new MemoryCache("santedb.adhoc", config);
         }
-       
 
         /// <summary>
         /// Add the specified data to the cache
@@ -87,7 +95,7 @@ namespace SanteDB.Caching.Memory
             try
             {
                 var data = this.m_cache.Get(key);
-                if(data == null)
+                if (data == null)
                     return default(T);
                 return (T)data;
             }

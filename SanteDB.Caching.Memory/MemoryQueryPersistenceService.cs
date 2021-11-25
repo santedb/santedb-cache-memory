@@ -36,18 +36,20 @@ using System.Timers;
 namespace SanteDB.Caching.Memory
 {
     /// <summary>
-    /// Represents a simple query persistence service that uses local memory for query continuation
+    /// An implementation of the <see cref="IQueryPersistenceService"/> which uses in-process memory to store query result sets
     /// </summary>
+    /// <remarks>
+    /// <para>This implementation of the query persistence service uses the <see cref="System.Runtime.Caching.MemoryCache"/> implementation to store
+    /// stateful query results (for consistent pagination) for a period of time in transient place.</para>
+    /// </remarks>
     [ServiceProvider("Memory-Based Query Persistence Service", Configuration = typeof(MemoryCacheConfigurationSection))]
     public class MemoryQueryPersistenceService : SanteDB.Core.Services.IQueryPersistenceService
     {
-        /// <summary>
-        /// Gets the service name
-        /// </summary>
+        /// <inheritdoc/>
         public string ServiceName => "Memory-Based Query Persistence / Continuation Service";
 
         /// <summary>
-        /// Memory based query information
+        /// Memory based query information - metadata about the query stored in the cache
         /// </summary>
         public class MemoryQueryInfo
         {
@@ -89,6 +91,8 @@ namespace SanteDB.Caching.Memory
         private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
 
         private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
+
+        // Cache backing
         private MemoryCache m_cache;
 
         /// <summary>
@@ -102,17 +106,13 @@ namespace SanteDB.Caching.Memory
             this.m_cache = new MemoryCache("santedb.query", config);
         }
 
-        /// <summary>
-        /// Clear
-        /// </summary>
+        /// <inheritdoc/>
         public void Clear()
         {
             this.m_cache.Trim(100);
         }
 
-        /// <summary>
-        /// Add results to id set
-        /// </summary>
+        /// <inheritdoc/>
         public void AddResults(Guid queryId, IEnumerable<Guid> results, int totalResults)
         {
             var cacheResult = this.m_cache.GetCacheItem($"qry.{queryId}");
@@ -129,9 +129,7 @@ namespace SanteDB.Caching.Memory
             }
         }
 
-        /// <summary>
-        /// Get query results
-        /// </summary>
+        /// <inheritdoc/>
         public IEnumerable<Guid> GetQueryResults(Guid queryId, int startRecord, int nRecords)
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
@@ -141,9 +139,7 @@ namespace SanteDB.Caching.Memory
             return null;
         }
 
-        /// <summary>
-        /// Get query tag
-        /// </summary>
+        /// <inheritdoc/>
         public object GetQueryTag(Guid queryId)
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
@@ -152,17 +148,13 @@ namespace SanteDB.Caching.Memory
             return null;
         }
 
-        /// <summary>
-        /// True if registered
-        /// </summary>
+        /// <inheritdoc/>
         public bool IsRegistered(Guid queryId)
         {
             return this.m_cache.Contains($"qry.{queryId}");
         }
 
-        /// <summary>
-        /// Get total results
-        /// </summary>
+        /// <inheritdoc/>
         public long QueryResultTotalQuantity(Guid queryId)
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
@@ -171,9 +163,7 @@ namespace SanteDB.Caching.Memory
             return 0;
         }
 
-        /// <summary>
-        /// Register a query
-        /// </summary>
+        /// <inheritdoc/>
         public bool RegisterQuerySet(Guid queryId, IEnumerable<Guid> results, object tag, int totalResults)
         {
             this.m_cache.Set($"qry.{queryId}", new MemoryQueryInfo()
@@ -186,17 +176,13 @@ namespace SanteDB.Caching.Memory
             return true;
         }
 
-        /// <summary>
-        /// Find the query ID by the tagged value of that query
-        /// </summary>
+        /// <inheritdoc/>
         public Guid FindQueryId(object queryTag)
         {
             return this.m_cache.Select(o => o.Value).OfType<MemoryQueryInfo>().FirstOrDefault(o => o.QueryTag.Equals(queryTag))?.Key ?? Guid.Empty;
         }
 
-        /// <summary>
-        /// Set the query tag
-        /// </summary>
+        /// <inheritdoc/>
         public void SetQueryTag(Guid queryId, object tagValue)
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");

@@ -34,8 +34,13 @@ using System.Threading.Tasks;
 namespace SanteDB.Caching.Memory
 {
     /// <summary>
-    /// REDIS ad-hoc cache
+    /// An implementation of <see cref="IAdhocCacheService"/> which uses the in-process memory cache
     /// </summary>
+    /// <remarks>
+    /// <para>This implementation of the adhoc caching service uses in-process memory to store unstructured data
+    /// which is commonly used in the application.</para>
+    /// </remarks>
+    /// <seealso cref="IAdhocCacheService"/>
     [ServiceProvider("Memory Ad-Hoc Cache Service", Configuration = typeof(MemoryCacheConfigurationSection))]
     public class MemoryAdhocCacheService : IAdhocCacheService
     {
@@ -48,10 +53,12 @@ namespace SanteDB.Caching.Memory
         private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
 
         private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
+
+        // The backing cache
         private MemoryCache m_cache;
 
         /// <summary>
-        /// Adhoc cache init
+        /// Ad-hoc cache initialization
         /// </summary>
         public MemoryAdhocCacheService()
         {

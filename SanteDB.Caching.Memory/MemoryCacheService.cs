@@ -20,13 +20,10 @@
  */
 
 using SanteDB.Caching.Memory.Configuration;
-using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
-using SanteDB.Core.Jobs;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Acts;
 using SanteDB.Core.Model.Attributes;
-using SanteDB.Core.Model.Constants;
 using SanteDB.Core.Model.Entities;
 using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Map;
@@ -34,7 +31,6 @@ using SanteDB.Core.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Caching;
@@ -43,10 +39,24 @@ using System.Xml.Serialization;
 namespace SanteDB.Caching.Memory
 {
     /// <summary>
-    /// Memory cache service
+    /// Implementation of the <see cref="IDataCachingService"/> which uses the in-process memory to cache objects
     /// </summary>
+    /// <remarks>
+    /// <para>The memory cache service uses the <see cref="System.Runtime.Caching.MemoryCache"/> class as a backing cache
+    /// for the SanteDB host instance. This caching provider provides benefits over a common, shared cache like REDIS in that:</para>
+    /// <list type="bullet">
+    ///     <item>It does not require the setup of a third-party service to operate</item>
+    ///     <item>The cache objects are directly accessed and not serialized</item>
+    ///     <item>The cache objects are protected within the host process memory</item>
+    ///     <item>The access is very fast - there is no interconnection with another process</item>
+    /// </list>
+    /// <para>This cache service should only be used in cases when there is a single SanteDB server and there is no need
+    /// for sharing cache objects between application services.</para>
+    /// <para>This class uses the TTL setting from the <see cref="MemoryCacheConfigurationSection"/> to determine the length of time
+    /// that cache entries are valid</para>
+    /// </remarks>
     [ServiceProvider("Memory Cache Service", Configuration = typeof(MemoryCacheConfigurationSection))]
-    public class MemoryCacheService : IDataCachingService
+    public class MemoryCacheService : IDataCachingService, IDaemonService
     {
         /// <summary>
         /// Gets the service name
@@ -56,37 +66,45 @@ namespace SanteDB.Caching.Memory
         // Memory cache configuration
         private MemoryCacheConfigurationSection m_configuration;
 
+        // Tracer
         private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
-        private static object s_lock = new object();
+
+        // Private cache
         private MemoryCache m_cache;
 
         // Non cached types
         private HashSet<Type> m_nonCached = new HashSet<Type>();
 
         /// <summary>
-        /// Service is starting
+        /// True when the memory cache is running
         /// </summary>
+        public bool IsRunning
+        {
+            get
+            {
+                return this.m_cache != null;
+            }
+        }
+
+        /// <inheritdoc/>
         public event EventHandler Started;
 
-        /// <summary>
-        /// Service has started
-        /// </summary>
+        /// <inheritdoc/>
         public event EventHandler Starting;
 
-        /// <summary>
-        /// Service is stopping
-        /// </summary>
+        /// <inheritdoc/>
         public event EventHandler Stopped;
 
-        /// <summary>
-        /// Service has stopped
-        /// </summary>
+        /// <inheritdoc/>
         public event EventHandler Stopping;
 
+        /// <inheritdoc/>
         public event EventHandler<DataCacheEventArgs> Added;
 
+        /// <inheritdoc/>
         public event EventHandler<DataCacheEventArgs> Updated;
 
+        /// <inheritdoc/>
         public event EventHandler<DataCacheEventArgs> Removed;
 
         /// <summary>
@@ -109,20 +127,94 @@ namespace SanteDB.Caching.Memory
             config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString());
             config.Add("pollingInterval", "00:05:00");
 
+            this.m_cache = new MemoryCache("santedb", config);
+        }
+
+        /// <inheritdoc/>
+        public bool Start()
+        {
+            this.m_tracer.TraceInfo("Starting Memory Caching Service...");
+
+            this.Starting?.Invoke(this, EventArgs.Empty);
+
+            // subscribe to events
+            this.Added += (o, e) => this.EnsureCacheConsistency(e);
+            this.Updated += (o, e) => this.EnsureCacheConsistency(e);
+            this.Removed += (o, e) => this.EnsureCacheConsistency(e);
+
             // Look for non-cached types
             foreach (var itm in typeof(IdentifiedData).Assembly.GetTypes().Where(o => o.GetCustomAttribute<NonCachedAttribute>() != null || o.GetCustomAttribute<XmlRootAttribute>() == null))
                 this.m_nonCached.Add(itm);
 
-            this.m_cache = new MemoryCache("santedb", config);
+            this.Started?.Invoke(this, EventArgs.Empty);
+            return true;
         }
 
         /// <summary>
-        /// Gets the specified cache item
+        /// Ensure cache consistency
         /// </summary>
-        /// <returns></returns>
+        /// <remarks>This method ensures that referenced objects (objects which are stored or updated which
+        /// are associative in nature) have their source and target objects evicted from cache.</remarks>
+        private void EnsureCacheConsistency(DataCacheEventArgs e)
+        {
+            //// Relationships should always be clean of source/target so the source/target will load the new relationship
+            if (e.Object is ActParticipation)
+            {
+                var ptcpt = (e.Object as ActParticipation);
+
+                this.Remove(ptcpt.SourceEntityKey.GetValueOrDefault());
+                this.Remove(ptcpt.PlayerEntityKey.GetValueOrDefault());
+                //MemoryCache.Current.RemoveObject(ptcpt.PlayerEntity?.GetType() ?? typeof(Entity), ptcpt.PlayerEntityKey);
+            }
+            else if (e.Object is ActRelationship)
+            {
+                var rel = (e.Object as ActRelationship);
+                this.Remove(rel.SourceEntityKey.GetValueOrDefault());
+                this.Remove(rel.TargetActKey.GetValueOrDefault());
+            }
+            else if (e.Object is EntityRelationship)
+            {
+                var rel = (e.Object as EntityRelationship);
+                this.Remove(rel.SourceEntityKey.GetValueOrDefault());
+                this.Remove(rel.TargetEntityKey.GetValueOrDefault());
+            }
+        }
+
+        /// <summary>
+        /// Either gets or updates the existing cache item
+        /// </summary>
+        private void GetOrUpdateCacheItem(ModelMapEventArgs e)
+        {
+            var cacheItem = this.m_cache.Get(e.Key.ToString());
+            if (cacheItem == null)
+                this.Add(e.ModelObject);
+            else
+            {
+                // Obsolete?
+                var cVer = cacheItem as IVersionedEntity;
+                var dVer = e.ModelObject as IVersionedEntity;
+                if (cVer?.VersionSequence < dVer?.VersionSequence) // Cache is older than this item
+                    this.Add(dVer as IdentifiedData);
+                e.ModelObject = cacheItem as IdentifiedData;
+                e.Cancel = true;
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool Stop()
+        {
+            this.Stopping?.Invoke(this, EventArgs.Empty);
+
+            this.m_cache.Dispose();
+            this.m_cache = null;
+            this.Stopped?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
+        /// <inheritdoc/>
         public TData GetCacheItem<TData>(Guid key) where TData : IdentifiedData
         {
-            var retVal = this.GetCacheItem(key);
+            var retVal = this.m_cache.Get(key.ToString());
             if (retVal is TData dat)
                 return (TData)dat.Clone();
             else
@@ -132,17 +224,21 @@ namespace SanteDB.Caching.Memory
             }
         }
 
-        /// <summary>
-        /// Get cache key regardless of type
-        /// </summary>
-        public object GetCacheItem(Guid key)
+        /// <inheritdoc/>
+        /// <threadsafety static="true" instance="true"/>
+        public IdentifiedData GetCacheItem(Guid key)
         {
-            return this.m_cache.Get(key.ToString());
+            var retVal = this.m_cache.Get(key.ToString());
+            if (retVal is IdentifiedData id)
+            {
+                return id.Clone();
+            }
+            else
+                return retVal as IdentifiedData;
         }
 
-        /// <summary>
-        /// Add the specified item to the memory cache
-        /// </summary>
+        /// <inheritdoc/>
+        /// <threadsafety static="true" instance="true"/>
         public void Add(IdentifiedData data)
         {
             // if the data is null, continue
@@ -153,8 +249,7 @@ namespace SanteDB.Caching.Memory
                 return;
             }
 
-            var cacheKey = data.Key.Value.ToString();
-            var exist = this.m_cache.Get(cacheKey);
+            var exist = this.m_cache.Get(data.Key.ToString());
 
             var dataClone = data.Clone();
             dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
@@ -173,7 +268,7 @@ namespace SanteDB.Caching.Memory
                 }
             }
 
-            this.m_cache.Set(cacheKey, dataClone, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge));
+            this.m_cache.Set(data.Key.ToString(), dataClone, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge));
 
             // If this is a relationship class we remove the source entity from the cache
             if (data is ITargetedAssociation targetedAssociation)
@@ -190,9 +285,8 @@ namespace SanteDB.Caching.Memory
                 this.Added?.Invoke(this, new DataCacheEventArgs(data));
         }
 
-        /// <summary>
-        /// Remove the object from the cache
-        /// </summary>
+        /// <inheritdoc/>
+        /// <threadsafety static="true" instance="true"/>
         public void Remove(Guid key)
         {
             var exist = this.m_cache.Get(key.ToString());
@@ -202,10 +296,8 @@ namespace SanteDB.Caching.Memory
             }
         }
 
-        /// <summary>
-        /// Remove the specified entry
-        /// </summary>
-        /// <param name="entry"></param>
+        /// <inheritdoc/>
+        /// <threadsafety static="true" instance="true"/>
         public void Remove(IdentifiedData entry)
         {
             this.m_cache.Remove(entry.Key.ToString());
@@ -220,25 +312,15 @@ namespace SanteDB.Caching.Memory
             this.Removed?.Invoke(this, new DataCacheEventArgs(entry));
         }
 
-        /// <summary>
-        /// Clear the memory cache
-        /// </summary>
+        /// <inheritdoc/>
+        /// <threadsafety static="true" instance="true"/>
         public void Clear()
         {
             this.m_cache.Trim(100);
         }
 
-        /// <summary>
-        /// Returns true if the object exists in the cache
-        /// </summary>
-        public bool Exists<T>(Guid id)
-        {
-            return this.m_cache.Contains(id.ToString());
-        }
-
-        /// <summary>
-        /// Get the size of the cache in entries
-        /// </summary>
+        /// <inheritdoc/>
+        /// <threadsafety static="true" instance="true"/>
         public long Size
         { get { return this.m_cache.GetLastSize(); } }
     }

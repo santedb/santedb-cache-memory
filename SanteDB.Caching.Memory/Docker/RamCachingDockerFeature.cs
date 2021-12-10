@@ -26,6 +26,7 @@ using SanteDB.Core.Exceptions;
 using SanteDB.Docker.Core;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 
@@ -34,6 +35,7 @@ namespace SanteDB.Caching.Memory.Docker
     /// <summary>
     /// Exposes the memory cache to the docker configuration
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public class RamCachingDockerFeature : IDockerFeature
     {
         /// <summary>

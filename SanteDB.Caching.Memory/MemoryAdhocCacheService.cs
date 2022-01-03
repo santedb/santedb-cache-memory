@@ -63,7 +63,7 @@ namespace SanteDB.Caching.Memory
         public MemoryAdhocCacheService()
         {
             var config = new NameValueCollection();
-            config.Add("cacheMemoryLimitMegabytes", this.m_configuration.MaxCacheSize.ToString());
+            config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "15");
             config.Add("pollingInterval", "00:05:00");
 
             this.m_cache = new MemoryCache("santedb.adhoc", config);
@@ -77,7 +77,7 @@ namespace SanteDB.Caching.Memory
             try
             {
                 if (Object.Equals(value, default(T))) return;
-                this.m_cache.Set(key, value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                this.m_cache.Set(key, value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration?.MaxCacheAge ?? 900));
             }
             catch (Exception e)
             {

@@ -101,7 +101,7 @@ namespace SanteDB.Caching.Memory
         public MemoryQueryPersistenceService()
         {
             var config = new NameValueCollection();
-            config.Add("cacheMemoryLimitMegabytes", this.m_configuration.MaxCacheSize.ToString());
+            config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "10");
             config.Add("pollingInterval", "00:05:00");
             this.m_cache = new MemoryCache("santedb.query", config);
         }
@@ -172,7 +172,7 @@ namespace SanteDB.Caching.Memory
                 Results = results.Select(o => o).ToList(),
                 TotalResults = totalResults,
                 Key = queryId
-            }, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxQueryAge));
+            }, DateTimeOffset.Now.AddSeconds(this.m_configuration?.MaxQueryAge ?? 3600));
             return true;
         }
 

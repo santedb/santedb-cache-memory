@@ -188,6 +188,11 @@ namespace SanteDB.Caching.Memory
                                         list.Add(data);
                                 }
                             }
+
+                            if(host is ITaggable ite)
+                            {
+                                ite.AddTag(SanteDBConstants.DcdrRefetchTag, "true");
+                            }
                             this.Add(host as IdentifiedData); // refresh 
 
                         }
@@ -266,6 +271,11 @@ namespace SanteDB.Caching.Memory
             {
                 return;
             }
+            else if(data.GetType().GetCustomAttribute<NonCachedAttribute>() != null)
+            {
+                this.m_nonCached.Add(data.GetType());
+                return;
+            } 
 
             var exist = this.m_cache.Get(data.Key.ToString());
 
@@ -280,7 +290,7 @@ namespace SanteDB.Caching.Memory
                     return;
                 }
 
-                foreach (var tag in taggable.Tags.Where(o => o.TagKey.StartsWith("$")).ToArray())
+                foreach (var tag in taggable.Tags.Where(o => o.TagKey.StartsWith("$") && o.TagKey != SanteDBConstants.DcdrRefetchTag).ToArray())
                 {
                     taggable.RemoveTag(tag.TagKey);
                 }

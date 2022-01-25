@@ -178,7 +178,7 @@ namespace SanteDB.Caching.Memory
                                 if (value is IList list)
                                 {
                                     var exist = list.OfType<IdentifiedData>().FirstOrDefault(o => o.SemanticEquals(data));
-                                    if (exist != null && (data.BatchOperation == Core.Model.DataTypes.BatchOperationType.Delete || !exist.Equals(data)))
+                                    if (exist != null)
                                     {
                                         list.Remove(exist);
                                     }

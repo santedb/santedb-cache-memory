@@ -120,9 +120,9 @@ namespace SanteDB.Caching.Memory
             {
                 this.m_configuration = new MemoryCacheConfigurationSection()
                 {
-                    MaxCacheAge = 60000,
+                    MaxCacheAge = 60,
                     MaxCacheSize = 1024,
-                    MaxQueryAge = 60000
+                    MaxQueryAge = 3600
                 };
             }
             var config = new NameValueCollection();

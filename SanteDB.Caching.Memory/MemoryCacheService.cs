@@ -24,11 +24,13 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Acts;
 using SanteDB.Core.Model.Attributes;
+using SanteDB.Core.Model.Collection;
 using SanteDB.Core.Model.Entities;
 using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -137,11 +139,6 @@ namespace SanteDB.Caching.Memory
 
             this.Starting?.Invoke(this, EventArgs.Empty);
 
-            // subscribe to events
-            this.Added += (o, e) => this.EnsureCacheConsistency(e);
-            this.Updated += (o, e) => this.EnsureCacheConsistency(e);
-            this.Removed += (o, e) => this.EnsureCacheConsistency(e);
-
             // Look for non-cached types
             foreach (var itm in typeof(IdentifiedData).Assembly.GetTypes().Where(o => o.GetCustomAttribute<NonCachedAttribute>() != null || o.GetCustomAttribute<XmlRootAttribute>() == null))
                 this.m_nonCached.Add(itm);
@@ -155,30 +152,55 @@ namespace SanteDB.Caching.Memory
         /// </summary>
         /// <remarks>This method ensures that referenced objects (objects which are stored or updated which
         /// are associative in nature) have their source and target objects evicted from cache.</remarks>
-        private void EnsureCacheConsistency(DataCacheEventArgs e)
+        private void EnsureCacheConsistency(IdentifiedData data)
         {
-            //// Relationships should always be clean of source/target so the source/target will load the new relationship
-            if (e.Object is ActParticipation)
+            // If it is a bundle we want to process the bundle
+            switch (data)
             {
-                var ptcpt = (e.Object as ActParticipation);
+                case Bundle bundle:
+                    foreach (var itm in bundle.Item)
+                    {
+                        if (itm.BatchOperation == Core.Model.DataTypes.BatchOperationType.Delete)
+                            this.Remove(itm);
+                        else
+                            this.Add(itm);
+                    }
+                    break;
+                case ISimpleAssociation sa:
+                    if (data.BatchOperation != Core.Model.DataTypes.BatchOperationType.Auto)
+                    {
+                        var host = this.GetCacheItem(sa.SourceEntityKey.GetValueOrDefault()); // Cache remove the source item
+                        if (host != null) // hosting type is cached
+                        {
+                            foreach (var prop in host.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(o => o.PropertyType.StripGeneric() == data.GetType()))
+                            {
+                                var value = host.LoadProperty(prop.Name) as IList;
+                                if (value is IList list)
+                                {
+                                    var exist = list.OfType<IdentifiedData>().FirstOrDefault(o => o.SemanticEquals(data));
+                                    if (exist != null && (data.BatchOperation == Core.Model.DataTypes.BatchOperationType.Delete || !exist.Equals(data)))
+                                    {
+                                        list.Remove(exist);
+                                    }
 
-                this.Remove(ptcpt.SourceEntityKey.GetValueOrDefault());
-                this.Remove(ptcpt.PlayerEntityKey.GetValueOrDefault());
-                //MemoryCache.Current.RemoveObject(ptcpt.PlayerEntity?.GetType() ?? typeof(Entity), ptcpt.PlayerEntityKey);
-            }
-            else if (e.Object is ActRelationship)
-            {
-                var rel = (e.Object as ActRelationship);
-                this.Remove(rel.SourceEntityKey.GetValueOrDefault());
-                this.Remove(rel.TargetActKey.GetValueOrDefault());
-            }
-            else if (e.Object is EntityRelationship)
-            {
-                var rel = (e.Object as EntityRelationship);
-                this.Remove(rel.SourceEntityKey.GetValueOrDefault());
-                this.Remove(rel.TargetEntityKey.GetValueOrDefault());
+                                    // Re-add
+                                    if (data.BatchOperation != Core.Model.DataTypes.BatchOperationType.Delete)
+                                        list.Add(data);
+                                }
+                            }
+
+                            if(host is ITaggable ite)
+                            {
+                                ite.AddTag(SanteDBConstants.DcdrRefetchTag, "true");
+                            }
+                            this.Add(host as IdentifiedData); // refresh 
+
+                        }
+                    }
+                    break;
             }
         }
+
 
         /// <summary>
         /// Either gets or updates the existing cache item
@@ -241,6 +263,7 @@ namespace SanteDB.Caching.Memory
         /// <threadsafety static="true" instance="true"/>
         public void Add(IdentifiedData data)
         {
+            this.EnsureCacheConsistency(data);
             // if the data is null, continue
             if (data == null || !data.Key.HasValue ||
                     (data as BaseEntityData)?.ObsoletionTime.HasValue == true ||
@@ -248,6 +271,11 @@ namespace SanteDB.Caching.Memory
             {
                 return;
             }
+            else if(data.GetType().GetCustomAttribute<NonCachedAttribute>() != null)
+            {
+                this.m_nonCached.Add(data.GetType());
+                return;
+            } 
 
             var exist = this.m_cache.Get(data.Key.ToString());
 
@@ -262,7 +290,7 @@ namespace SanteDB.Caching.Memory
                     return;
                 }
 
-                foreach (var tag in taggable.Tags.Where(o => o.TagKey.StartsWith("$")).ToArray())
+                foreach (var tag in taggable.Tags.Where(o => o.TagKey.StartsWith("$") && o.TagKey != SanteDBConstants.DcdrRefetchTag).ToArray())
                 {
                     taggable.RemoveTag(tag.TagKey);
                 }
@@ -301,14 +329,8 @@ namespace SanteDB.Caching.Memory
         public void Remove(IdentifiedData entry)
         {
             this.m_cache.Remove(entry.Key.ToString());
-            if (entry is ISimpleAssociation sa)
-            {
-                this.Remove(sa.SourceEntityKey.GetValueOrDefault());
-                if (sa is ITargetedAssociation ta)
-                {
-                    this.Remove(ta.TargetEntityKey.GetValueOrDefault());
-                }
-            }
+            entry.BatchOperation = Core.Model.DataTypes.BatchOperationType.Delete;
+            this.EnsureCacheConsistency(entry);
             this.Removed?.Invoke(this, new DataCacheEventArgs(entry));
         }
 

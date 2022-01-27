@@ -328,10 +328,13 @@ namespace SanteDB.Caching.Memory
         /// <threadsafety static="true" instance="true"/>
         public void Remove(IdentifiedData entry)
         {
-            this.m_cache.Remove(entry.Key.ToString());
-            entry.BatchOperation = Core.Model.DataTypes.BatchOperationType.Delete;
-            this.EnsureCacheConsistency(entry);
-            this.Removed?.Invoke(this, new DataCacheEventArgs(entry));
+            if (entry != null)
+            {
+                this.m_cache?.Remove(entry.Key.ToString());
+                entry.BatchOperation = Core.Model.DataTypes.BatchOperationType.Delete;
+                this.EnsureCacheConsistency(entry);
+                this.Removed?.Invoke(this, new DataCacheEventArgs(entry));
+            }
         }
 
         /// <inheritdoc/>

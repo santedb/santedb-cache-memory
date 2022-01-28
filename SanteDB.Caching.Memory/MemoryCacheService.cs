@@ -120,9 +120,9 @@ namespace SanteDB.Caching.Memory
             {
                 this.m_configuration = new MemoryCacheConfigurationSection()
                 {
-                    MaxCacheAge = 60000,
+                    MaxCacheAge = 60,
                     MaxCacheSize = 1024,
-                    MaxQueryAge = 60000
+                    MaxQueryAge = 3600
                 };
             }
             var config = new NameValueCollection();
@@ -178,7 +178,7 @@ namespace SanteDB.Caching.Memory
                                 if (value is IList list)
                                 {
                                     var exist = list.OfType<IdentifiedData>().FirstOrDefault(o => o.SemanticEquals(data));
-                                    if (exist != null && (data.BatchOperation == Core.Model.DataTypes.BatchOperationType.Delete || !exist.Equals(data)))
+                                    if (exist != null)
                                     {
                                         list.Remove(exist);
                                     }
@@ -328,10 +328,13 @@ namespace SanteDB.Caching.Memory
         /// <threadsafety static="true" instance="true"/>
         public void Remove(IdentifiedData entry)
         {
-            this.m_cache.Remove(entry.Key.ToString());
-            entry.BatchOperation = Core.Model.DataTypes.BatchOperationType.Delete;
-            this.EnsureCacheConsistency(entry);
-            this.Removed?.Invoke(this, new DataCacheEventArgs(entry));
+            if (entry != null)
+            {
+                this.m_cache?.Remove(entry.Key.ToString());
+                entry.BatchOperation = Core.Model.DataTypes.BatchOperationType.Delete;
+                this.EnsureCacheConsistency(entry);
+                this.Removed?.Invoke(this, new DataCacheEventArgs(entry));
+            }
         }
 
         /// <inheritdoc/>

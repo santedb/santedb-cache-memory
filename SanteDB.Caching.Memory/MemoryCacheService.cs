@@ -153,6 +153,9 @@ namespace SanteDB.Caching.Memory
         /// are associative in nature) have their source and target objects evicted from cache.</remarks>
         private void EnsureCacheConsistency(IdentifiedData data)
         {
+            // No data - no consistency needed
+            if(data == null) { return; }
+
             // If it is a bundle we want to process the bundle
             switch (data)
             {
@@ -198,6 +201,8 @@ namespace SanteDB.Caching.Memory
                     }
                     break;
             }
+            data.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
+
         }
 
 
@@ -252,7 +257,9 @@ namespace SanteDB.Caching.Memory
             var retVal = this.m_cache.Get(key.ToString());
             if (retVal is IdentifiedData id)
             {
-                return id.Clone();
+                id = id.Clone();
+                id.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
+                return id;
             }
             else
                 return retVal as IdentifiedData;

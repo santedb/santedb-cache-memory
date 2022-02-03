@@ -21,6 +21,7 @@
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
+using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Services;
 using System;
 using System.Collections.Generic;
@@ -77,7 +78,14 @@ namespace SanteDB.Caching.Memory
             try
             {
                 if (Object.Equals(value, default(T))) return;
-                this.m_cache.Set(key, value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                if (value is ICanDeepCopy icdc)
+                {
+                    this.m_cache.Set(key, icdc.DeepCopy(), DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                }
+                else
+                {
+                    this.m_cache.Set(key, value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                }
             }
             catch (Exception e)
             {

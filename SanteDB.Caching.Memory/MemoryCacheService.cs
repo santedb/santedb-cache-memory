@@ -242,7 +242,7 @@ namespace SanteDB.Caching.Memory
         {
             var retVal = this.m_cache.Get(key.ToString());
             if (retVal is TData dat)
-                return (TData)dat.Clone();
+                return (TData)dat.DeepCopy();
             else
             {
                 this.Remove(key); // wrong type -
@@ -255,12 +255,8 @@ namespace SanteDB.Caching.Memory
         public IdentifiedData GetCacheItem(Guid key)
         {
             var retVal = this.m_cache.Get(key.ToString());
-            if (retVal is IdentifiedData id)
-            {
-                id = id.Clone();
-                id.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
-                return id;
-            }
+            if (retVal is ICanDeepCopy icdc)
+                return icdc.DeepCopy() as IdentifiedData;
             else
                 return retVal as IdentifiedData;
         }
@@ -285,7 +281,7 @@ namespace SanteDB.Caching.Memory
 
             var exist = this.m_cache.Get(data.Key.ToString());
 
-            var dataClone = data.Clone();
+            var dataClone = data.DeepCopy() as IdentifiedData;
             dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
             if (dataClone is ITaggable taggable)
             {

@@ -196,7 +196,11 @@ namespace SanteDB.Caching.Memory
         {
             var retVal = this.m_cache.Get(key.ToString());
             if (retVal is TData dat)
-                return (TData)dat.Clone();
+            {
+                var loaded = (TData)dat.Clone();
+                loaded.AddAnnotation(dat.GetAnnotations<LoadMode>().FirstOrDefault());
+                return loaded;
+            }
             else
             {
                 this.Remove(key); // wrong type -
@@ -211,10 +215,12 @@ namespace SanteDB.Caching.Memory
             var retVal = this.m_cache.Get(key.ToString());
             if (retVal is IdentifiedData id)
             {
-                return id.Clone();
+                var cloned = id.Clone();
+                cloned.AddAnnotation(id.GetAnnotations<LoadMode>().FirstOrDefault());
+                return cloned;
             }
             else
-                return retVal as IdentifiedData;
+                return null;
         }
 
         /// <inheritdoc/>

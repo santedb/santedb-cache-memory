@@ -1,27 +1,27 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-10-21
  */
-
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
+using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Services;
 using System;
 using System.Collections.Generic;
@@ -63,7 +63,7 @@ namespace SanteDB.Caching.Memory
         public MemoryAdhocCacheService()
         {
             var config = new NameValueCollection();
-            config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "15");
+            config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "512");
             config.Add("pollingInterval", "00:05:00");
 
             this.m_cache = new MemoryCache("santedb.adhoc", config);
@@ -77,7 +77,14 @@ namespace SanteDB.Caching.Memory
             try
             {
                 if (Object.Equals(value, default(T))) return;
-                this.m_cache.Set(key, value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration?.MaxCacheAge ?? 900));
+                if (value is ICanDeepCopy icdc)
+                {
+                    this.m_cache.Set(key, icdc.DeepCopy(), DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                }
+                else
+                {
+                    this.m_cache.Set(key, value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                }
             }
             catch (Exception e)
             {

@@ -77,14 +77,13 @@ namespace SanteDB.Caching.Memory
         {
             try
             {
-                if (Object.Equals(value, default(T))) return;
                 if (value is ICanDeepCopy icdc)
                 {
                     this.m_cache.Set(key, icdc.DeepCopy(), DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
                 }
                 else
                 {
-                    this.m_cache.Set(key, value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                    this.m_cache.Set(key, (object)value ?? DBNull.Value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
                 }
             }
             catch (Exception e)
@@ -102,7 +101,7 @@ namespace SanteDB.Caching.Memory
             try
             {
                 var data = this.m_cache.Get(key);
-                if (data == null)
+                if (data == null || data == DBNull.Value)
                     return default(T);
                 return (T)data;
             }
@@ -120,6 +119,12 @@ namespace SanteDB.Caching.Memory
         public bool Remove(string key)
         {
             return this.m_cache.Remove(key) != null;
+        }
+
+        /// <inheritdoc/>
+        public bool Exists(string key)
+        {
+            return this.m_cache.Contains(key);
         }
     }
 }

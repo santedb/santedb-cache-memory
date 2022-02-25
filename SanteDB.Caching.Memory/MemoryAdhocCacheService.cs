@@ -52,7 +52,7 @@ namespace SanteDB.Caching.Memory
         //  trace source
         private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
 
-        private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
+        private readonly MemoryCacheConfigurationSection m_configuration;
 
         // The backing cache
         private MemoryCache m_cache;
@@ -60,11 +60,22 @@ namespace SanteDB.Caching.Memory
         /// <summary>
         /// Ad-hoc cache initialization
         /// </summary>
-        public MemoryAdhocCacheService()
+        public MemoryAdhocCacheService(IConfigurationManager configurationManager)
         {
+            this.m_configuration = configurationManager.GetSection<MemoryCacheConfigurationSection>();
+            if (this.m_configuration == null)
+            {
+                this.m_configuration = new MemoryCacheConfigurationSection()
+                {
+                    MaxCacheAge = 60,
+                    MaxCacheSize = 512,
+                    MaxQueryAge = 3600
+                };
+            }
             var config = new NameValueCollection();
-            config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "512");
+            config.Add("cacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString());
             config.Add("pollingInterval", "00:05:00");
+
 
             this.m_cache = new MemoryCache("santedb.adhoc", config);
         }

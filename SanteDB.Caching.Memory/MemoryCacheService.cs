@@ -119,7 +119,7 @@ namespace SanteDB.Caching.Memory
             {
                 this.m_configuration = new MemoryCacheConfigurationSection()
                 {
-                    MaxCacheAge = 60,
+                    MaxCacheAge = 600,
                     MaxCacheSize = 1024,
                     MaxQueryAge = 3600
                 };
@@ -201,7 +201,6 @@ namespace SanteDB.Caching.Memory
                     }
                     break;
             }
-            data.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
 
         }
 
@@ -240,7 +239,7 @@ namespace SanteDB.Caching.Memory
             var retVal = this.m_cache.Get(key.ToString());
             if (retVal is IdentifiedData id)
             {
-                var cloned = id.DeepCopy();
+                var cloned = id.DeepCopy() as IdentifiedData;
                 cloned.AddAnnotation(id.GetAnnotations<LoadMode>().FirstOrDefault());
                 return cloned;
             }
@@ -336,7 +335,7 @@ namespace SanteDB.Caching.Memory
         /// <summary>
         /// Determines if the object exists
         /// </summary>
-        public bool Exists<T>(Guid id)
+        public bool Exists<T>(Guid id) where T : IdentifiedData
         {
             return this.m_cache.Get(id.ToString()) is T;
         }

@@ -154,7 +154,7 @@ namespace SanteDB.Caching.Memory
         private void EnsureCacheConsistency(IdentifiedData data)
         {
             // No data - no consistency needed
-            if(data == null) { return; }
+            if (data == null) { return; }
 
             // If it is a bundle we want to process the bundle
             switch (data)
@@ -191,7 +191,7 @@ namespace SanteDB.Caching.Memory
                                 }
                             }
 
-                            if(host is ITaggable ite)
+                            if (host is ITaggable ite)
                             {
                                 ite.AddTag(SanteDBConstants.DcdrRefetchTag, "true");
                             }
@@ -259,17 +259,17 @@ namespace SanteDB.Caching.Memory
             {
                 return;
             }
-            else if(data.GetType().GetCustomAttribute<NonCachedAttribute>() != null)
+            else if (data.GetType().GetCustomAttribute<NonCachedAttribute>() != null)
             {
                 this.m_nonCached.Add(data.GetType());
                 return;
-            } 
+            }
 
             var exist = this.m_cache.Get(data.Key.ToString());
 
             var dataClone = data.DeepCopy() as IdentifiedData;
             dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
-            if (dataClone is ITaggable taggable)
+            if (data is ITaggable taggable)
             {
                 // TODO: Put this as a constant
                 // Don't cache generated data
@@ -278,10 +278,8 @@ namespace SanteDB.Caching.Memory
                     return;
                 }
 
-                foreach (var tag in taggable.Tags.Where(o => o.TagKey.StartsWith("$") && o.TagKey != SanteDBConstants.DcdrRefetchTag).ToArray())
-                {
-                    taggable.RemoveTag(tag.TagKey);
-                }
+                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") || o.TagKey != SanteDBConstants.DcdrRefetchTag);
+
             }
 
             this.m_cache.Set(data.Key.ToString(), dataClone, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge));

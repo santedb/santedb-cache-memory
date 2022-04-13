@@ -43,6 +43,11 @@ namespace SanteDB.Caching.Memory.Docker
         public const string MaxAgeSetting = "TTL";
 
         /// <summary>
+        /// Maximum size of the cache
+        /// </summary>
+        public const string MaxSizeSetting = "MAXMB";
+
+        /// <summary>
         /// Get the id of this feature
         /// </summary>
         public string Id => "RAMCACHE";
@@ -74,11 +79,20 @@ namespace SanteDB.Caching.Memory.Docker
             {
                 maxAge = "0.1:0:0";
             }
+            if(!settings.TryGetValue(MaxSizeSetting, out string maxSize))
+            {
+                maxSize = "512";
+            }
 
             // Parse
             if (!TimeSpan.TryParse(maxAge, out TimeSpan maxAgeTs))
             {
                 throw new ConfigurationException($"{maxAge} is not understood as a timespan", configuration);
+            }
+            if(!Int32.TryParse(maxSize, out var maxSizeInt))
+            {
+                throw new ConfigurationException($"{maxSize} is not understood as a integer", configuration);
+
             }
 
             var memSetting = configuration.GetSection<MemoryCacheConfigurationSection>();
@@ -86,7 +100,7 @@ namespace SanteDB.Caching.Memory.Docker
             {
                 memSetting = new MemoryCacheConfigurationSection()
                 {
-                    MaxCacheSize = 10000
+                    MaxCacheSize = maxSizeInt
                 };
                 configuration.AddSection(memSetting);
             }

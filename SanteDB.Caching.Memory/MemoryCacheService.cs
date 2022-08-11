@@ -59,6 +59,12 @@ namespace SanteDB.Caching.Memory
     [ServiceProvider("Memory Cache Service", Configuration = typeof(MemoryCacheConfigurationSection))]
     public class MemoryCacheService : IDataCachingService, IDaemonService
     {
+
+        /// <summary>
+        /// Consistent indicator
+        /// </summary>
+        private struct CacheConsistentIndicator { }
+
         /// <summary>
         /// Gets the service name
         /// </summary>
@@ -154,7 +160,8 @@ namespace SanteDB.Caching.Memory
         private void EnsureCacheConsistency(IdentifiedData data)
         {
             // No data - no consistency needed
-            if (data == null) { return; }
+            if (data == null || data.GetAnnotations<CacheConsistentIndicator>().Any()) { return; }
+            data.AddAnnotation(new CacheConsistentIndicator());
 
             // If it is a bundle we want to process the bundle
             switch (data)
@@ -201,6 +208,7 @@ namespace SanteDB.Caching.Memory
                     }
                     break;
             }
+            //data.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
 
         }
 
@@ -251,6 +259,7 @@ namespace SanteDB.Caching.Memory
         /// <threadsafety static="true" instance="true"/>
         public void Add(IdentifiedData data)
         {
+
             this.EnsureCacheConsistency(data);
             // if the data is null, continue
             if (data == null || !data.Key.HasValue ||

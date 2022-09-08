@@ -87,7 +87,7 @@ namespace SanteDB.Caching.Memory.Test
             var ret = ApplicationServiceContext.Current.GetService<IDataCachingService>().GetCacheItem<Concept>(k);
             Assert.IsNotNull(ret);
 
-            Thread.Sleep(10000); // wait 10 secs
+            Thread.Sleep(2000); // wait 10 secs
             ret = ApplicationServiceContext.Current.GetService<IDataCachingService>().GetCacheItem<Concept>(k);
             Assert.IsNull(ret);
         }
@@ -161,10 +161,10 @@ namespace SanteDB.Caching.Memory.Test
             {
                 Message = "I AM COMPLEX",
                 Value = 2
-            }, new TimeSpan(0, 0, 5));
+            }, new TimeSpan(0, 0, 2));
             dynamic val = ApplicationServiceContext.Current.GetService<IAdhocCacheService>().Get<dynamic>("COMPLEX");
             Assert.AreEqual("I AM COMPLEX", val.Message);
-            Thread.Sleep(10000);
+            Thread.Sleep(3000);
             // Should be gone
             val = ApplicationServiceContext.Current.GetService<IAdhocCacheService>().Get<dynamic>("COMPLEX");
             Assert.IsNull(val);

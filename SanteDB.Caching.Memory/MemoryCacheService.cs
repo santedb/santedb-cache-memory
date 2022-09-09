@@ -200,7 +200,7 @@ namespace SanteDB.Caching.Memory
 
                             if (host is ITaggable ite)
                             {
-                                ite.AddTag(SanteDBConstants.DcdrRefetchTag, "true");
+                                ite.AddTag(SanteDBModelConstants.DcdrRefetchTag, "true");
                             }
                             this.Add(host as IdentifiedData); // refresh 
 
@@ -287,7 +287,7 @@ namespace SanteDB.Caching.Memory
                     return;
                 }
 
-                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") || o.TagKey != SanteDBConstants.DcdrRefetchTag);
+                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") || o.TagKey != SanteDBModelConstants.DcdrRefetchTag);
 
             }
 

@@ -118,7 +118,7 @@ namespace SanteDB.Caching.Memory
             }
             catch (Exception e)
             {
-                this.m_tracer.TraceError("Error fetch {0} from cache", key);
+                this.m_tracer.TraceError("Error fetch {0} from cache - {1}", key, e.Message);
                 //throw new Exception($"Error fetching {key} ({typeof(T).FullName}) from cache", e);
                 return default(T);
             }

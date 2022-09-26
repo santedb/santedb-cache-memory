@@ -278,6 +278,8 @@ namespace SanteDB.Caching.Memory
 
             var dataClone = data.DeepCopy() as IdentifiedData;
             dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
+            dataClone.AddAnnotation(data.GetAnnotations<LoadMode>().FirstOrDefault());
+
             if (data is ITaggable taggable)
             {
                 // TODO: Put this as a constant
@@ -292,7 +294,6 @@ namespace SanteDB.Caching.Memory
             }
 
             this.m_cache.Set(data.Key.ToString(), dataClone, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge));
-
             // If this is a relationship class we remove the source entity from the cache
             if (data is ITargetedAssociation targetedAssociation)
             {

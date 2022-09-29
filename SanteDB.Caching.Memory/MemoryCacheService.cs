@@ -224,21 +224,7 @@ namespace SanteDB.Caching.Memory
         }
 
         /// <inheritdoc/>
-        public TData GetCacheItem<TData>(Guid key) where TData : IdentifiedData
-        {
-            var retVal = this.m_cache.Get(key.ToString());
-            if (retVal is TData dat)
-            {
-                var loaded = (TData)dat.DeepCopy();
-                loaded.AddAnnotation(dat.GetAnnotations<LoadMode>().FirstOrDefault());
-                return loaded;
-            }
-            else
-            {
-                this.Remove(key); // wrong type -
-                return default(TData);
-            }
-        }
+        public TData GetCacheItem<TData>(Guid key) where TData : IdentifiedData => (TData)this.GetCacheItem(key);
 
         /// <inheritdoc/>
         /// <threadsafety static="true" instance="true"/>

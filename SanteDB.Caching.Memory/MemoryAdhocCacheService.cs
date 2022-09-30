@@ -19,17 +19,12 @@
  * Date: 2022-5-30
  */
 using SanteDB.Caching.Memory.Configuration;
-using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Services;
 using System;
-using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Linq;
 using System.Runtime.Caching;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SanteDB.Caching.Memory
 {
@@ -77,7 +72,7 @@ namespace SanteDB.Caching.Memory
             config.Add("PollingInterval", "00:05:00");
             this.m_cache = new MemoryCache("santedb.adhoc", config, true);
 
-            
+
 
         }
 
@@ -99,7 +94,7 @@ namespace SanteDB.Caching.Memory
             }
             catch (Exception e)
             {
-                this.m_tracer.TraceError("Error adding {0} to cache", value);
+                this.m_tracer.TraceError("Error adding {0} to cache - {1}", value, e.Message);
                 //throw new Exception($"Error adding {value} to cache", e);
             }
         }
@@ -113,7 +108,10 @@ namespace SanteDB.Caching.Memory
             {
                 var data = this.m_cache.Get(key);
                 if (data == null || data == DBNull.Value)
+                {
                     return default(T);
+                }
+
                 return (T)data;
             }
             catch (Exception e)

@@ -21,16 +21,12 @@
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
-using SanteDB.Core.Jobs;
 using SanteDB.Core.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.Caching;
-using System.Threading;
-using System.Timers;
 
 namespace SanteDB.Caching.Memory
 {
@@ -116,12 +112,17 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.GetCacheItem($"qry.{queryId}");
             if (cacheResult == null)
+            {
                 return; // no item
+            }
             else if (cacheResult.Value is MemoryQueryInfo retVal)
             {
                 this.m_tracer.TraceVerbose("Updating query {0} ({1} results)", queryId, results.Count());
                 lock (retVal.Results)
+                {
                     retVal.Results.AddRange(results.Where(o => !retVal.Results.Contains(o)).Select(o => o));
+                }
+
                 retVal.TotalResults = totalResults;
                 this.m_cache.Set(cacheResult.Key, cacheResult.Value, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxQueryAge));
                 //retVal.TotalResults = retVal.Results.Count();
@@ -133,8 +134,13 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
+            {
                 lock (retVal.Results)
+                {
                     return retVal.Results.ToArray().Distinct().Skip(startRecord).Take(nRecords).OfType<Guid>().ToArray();
+                }
+            }
+
             return null;
         }
 
@@ -143,7 +149,10 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
+            {
                 return retVal.QueryTag;
+            }
+
             return null;
         }
 
@@ -158,7 +167,10 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
+            {
                 return retVal.TotalResults;
+            }
+
             return 0;
         }
 
@@ -186,7 +198,9 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
+            {
                 retVal.QueryTag = tagValue;
+            }
         }
 
         /// <summary>

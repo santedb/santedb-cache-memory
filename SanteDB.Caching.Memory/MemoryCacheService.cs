@@ -21,12 +21,9 @@
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
-using SanteDB.Core.Model.Acts;
 using SanteDB.Core.Model.Attributes;
 using SanteDB.Core.Model.Collection;
-using SanteDB.Core.Model.Entities;
 using SanteDB.Core.Model.Interfaces;
-using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using System;
 using System.Collections;
@@ -146,7 +143,9 @@ namespace SanteDB.Caching.Memory
 
             // Look for non-cached types
             foreach (var itm in typeof(IdentifiedData).Assembly.GetTypes().Where(o => o.GetCustomAttribute<NonCachedAttribute>() != null || o.GetCustomAttribute<XmlRootAttribute>() == null))
+            {
                 this.m_nonCached.Add(itm);
+            }
 
             this.Started?.Invoke(this, EventArgs.Empty);
             return true;
@@ -170,9 +169,13 @@ namespace SanteDB.Caching.Memory
                     foreach (var itm in bundle.Item)
                     {
                         if (itm.BatchOperation == Core.Model.DataTypes.BatchOperationType.Delete)
+                        {
                             this.Remove(itm);
+                        }
                         else
+                        {
                             this.Add(itm);
+                        }
                     }
                     break;
                 case ISimpleAssociation sa:
@@ -194,7 +197,9 @@ namespace SanteDB.Caching.Memory
 
                                     // Re-add
                                     if (data.BatchOperation != Core.Model.DataTypes.BatchOperationType.Delete)
+                                    {
                                         list.Add(data);
+                                    }
                                 }
                             }
 
@@ -238,7 +243,9 @@ namespace SanteDB.Caching.Memory
                 return cloned;
             }
             else
+            {
                 return null;
+            }
         }
 
         /// <inheritdoc/>
@@ -287,12 +294,18 @@ namespace SanteDB.Caching.Memory
                 this.m_cache.Remove(targetedAssociation.TargetEntityKey.ToString());
             }
             else if (data is ISimpleAssociation simpleAssociation)
+            {
                 this.m_cache.Remove(simpleAssociation.SourceEntityKey.ToString());
+            }
 
             if (exist != null)
+            {
                 this.Updated?.Invoke(this, new DataCacheEventArgs(data));
+            }
             else
+            {
                 this.Added?.Invoke(this, new DataCacheEventArgs(data));
+            }
         }
 
         /// <inheritdoc/>

@@ -18,7 +18,6 @@
  * User: fyfej
  * Date: 2022-5-30
  */
-using SanteDB.Caching.Memory;
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Exceptions;
@@ -27,7 +26,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.Caching.Memory.Docker
 {
@@ -79,7 +77,7 @@ namespace SanteDB.Caching.Memory.Docker
             {
                 maxAge = "0.1:0:0";
             }
-            if(!settings.TryGetValue(MaxSizeSetting, out string maxSize))
+            if (!settings.TryGetValue(MaxSizeSetting, out string maxSize))
             {
                 maxSize = "512";
             }
@@ -89,7 +87,7 @@ namespace SanteDB.Caching.Memory.Docker
             {
                 throw new ConfigurationException($"{maxAge} is not understood as a timespan", configuration);
             }
-            if(!Int32.TryParse(maxSize, out var maxSizeInt))
+            if (!Int32.TryParse(maxSize, out var maxSizeInt))
             {
                 throw new ConfigurationException($"{maxSize} is not understood as a integer", configuration);
 

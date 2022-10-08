@@ -229,7 +229,7 @@ namespace SanteDB.Caching.Memory
         }
 
         /// <inheritdoc/>
-        public TData GetCacheItem<TData>(Guid key) where TData : IdentifiedData => (TData)this.GetCacheItem(key);
+        public TData GetCacheItem<TData>(Guid key) where TData : IdentifiedData => this.GetCacheItem(key) as TData;
 
         /// <inheritdoc/>
         /// <threadsafety static="true" instance="true"/>

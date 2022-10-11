@@ -253,7 +253,9 @@ namespace SanteDB.Caching.Memory
         public void Add(IdentifiedData data)
         {
 
-            this.EnsureCacheConsistency(data);
+            var dataClone = data?.DeepCopy() as IdentifiedData;
+
+            this.EnsureCacheConsistency(dataClone);
             // if the data is null, continue
             if (data == null || !data.Key.HasValue ||
                     (data as BaseEntityData)?.ObsoletionTime.HasValue == true ||
@@ -269,7 +271,6 @@ namespace SanteDB.Caching.Memory
 
             var exist = this.m_cache.Get(data.Key.ToString());
 
-            var dataClone = data.DeepCopy() as IdentifiedData;
             dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
             if (data is ITaggable taggable)
             {

@@ -295,5 +295,11 @@ namespace SanteDB.Caching.Memory.Session
                 throw new ArgumentOutOfRangeException(nameof(session), String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(MemorySession), session.GetType()));
             }
         }
+
+        public ISession[] GetUserSessions(Guid userKey)
+        {
+            //TODO: Implement
+            throw new NotSupportedException(m_localizationService.GetString(ErrorMessageStrings.NOT_FOUND, new { type = "user", id = userKey }));
+        }
     }
 }

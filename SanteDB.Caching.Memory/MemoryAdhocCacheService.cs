@@ -104,21 +104,38 @@ namespace SanteDB.Caching.Memory
         /// </summary>
         public T Get<T>(string key)
         {
+            if(this.TryGet<T>(key, out T value))
+            {
+                return value;
+            }
+            else
+            {
+                return default(T);
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool TryGet<T>(String key, out T value)
+        {
             try
             {
                 var data = this.m_cache.Get(key);
                 if (data == null || data == DBNull.Value)
                 {
-                    return default(T);
+                    value = default(T);
                 }
-
-                return (T)data;
+                else
+                {
+                    value = (T)data;
+                }
+                return this.m_cache.Contains(key);
             }
             catch (Exception e)
             {
                 this.m_tracer.TraceError("Error fetch {0} from cache - {1}", key, e.Message);
                 //throw new Exception($"Error fetching {key} ({typeof(T).FullName}) from cache", e);
-                return default(T);
+                value = default(T);
+                return false;
             }
         }
 

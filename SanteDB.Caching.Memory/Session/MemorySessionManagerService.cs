@@ -5,6 +5,7 @@ using SanteDB.Core.Model.Constants;
 using SanteDB.Core.Security;
 using SanteDB.Core.Security.Claims;
 using SanteDB.Core.Security.Configuration;
+using SanteDB.Core.Security.Principal;
 using SanteDB.Core.Security.Services;
 using SanteDB.Core.Services;
 using System;
@@ -26,6 +27,7 @@ namespace SanteDB.Caching.Memory.Session
         /// Sessions
         /// </summary>
         private readonly MemoryCache m_session = new MemoryCache("$sdb-ade.session");
+        private readonly ISessionTokenEncodingService m_sessionTokenEncoder;
 
         // Security configuration section
         private readonly SecurityConfigurationSection m_securityConfig;
@@ -43,13 +45,15 @@ namespace SanteDB.Caching.Memory.Session
         /// <summary>
         /// DI Constructor
         /// </summary>
-        public MemorySessionManagerService(IConfigurationManager configurationManager, 
+        public MemorySessionManagerService(IConfigurationManager configurationManager,
+            ISessionTokenEncodingService sessionTokenEncodingService, 
             ILocalizationService localizationService, 
             IPolicyDecisionService pdpService, 
             IPolicyEnforcementService pepService,
             IPolicyInformationService pipService, 
             IIdentityProviderService identityProviderService)
         {
+            this.m_sessionTokenEncoder = sessionTokenEncodingService;
             this.m_securityConfig = configurationManager.GetSection<SecurityConfigurationSection>();
             this.m_localizationService = localizationService;
             this.m_pdpService = pdpService;
@@ -125,7 +129,16 @@ namespace SanteDB.Caching.Memory.Session
                 scope = new string[] { "*" };
             }
 
-            if (principal is IClaimsPrincipal claimsPrincipal)
+            if(principal is ITokenPrincipal tokenPrincipal) // We got this from the upstream so we want to just store it
+            {
+                // Try to hext decode 
+                var decodedSessionToken = this.m_sessionTokenEncoder.ExtractSessionIdentity(tokenPrincipal.AccessToken);
+                var session = new MemorySession(decodedSessionToken, DateTimeOffset.Now, tokenPrincipal.ExpiresAt, Encoding.UTF8.GetBytes(tokenPrincipal.RefreshToken), tokenPrincipal.Claims.ToArray(), principal);
+                this.m_session.Add(session.Id.HexEncode(), session, tokenPrincipal.ExpiresAt.ToLocalTime());
+                this.Established?.Invoke(this, new SessionEstablishedEventArgs(principal, session, true, isOverride, purpose, scope));
+                return session;
+            }
+            else if (principal is IClaimsPrincipal claimsPrincipal)
             {
 
                 try
@@ -147,7 +160,7 @@ namespace SanteDB.Caching.Memory.Session
                     }
 
                     // Validate scopes are valid or can be overridden
-                    if (scope != null && !scope.Contains("*"))
+                    if (scope != null && !scope.Contains("*")) // If the principal came from the upstream we will trust its judgement on access
                     {
                         foreach (var pol in scope.Select(o => this.m_pipService.GetPolicy(o)))
                         {
@@ -174,6 +187,10 @@ namespace SanteDB.Caching.Memory.Session
                         claimsPrincipal.FindFirst(SanteDBClaimTypes.PurposeOfUse)?.Value.Equals(PurposeOfUseKeys.SecurityAdmin.ToString(), StringComparison.OrdinalIgnoreCase) == true))
                     {
                         expiration = DateTimeOffset.Now.AddSeconds(120);
+                    }
+                    else if (claimsPrincipal.FindFirst(SanteDBClaimTypes.TemporarySession)?.Value == "true")
+                    {
+                        expiration = DateTimeOffset.Now.AddSeconds(60); //TODO: Need to set this somewhere as a configuration setting. This means they have ~2 minutes to click on a password reset.
                     }
 
                     // Get the effective scopes 
@@ -207,8 +224,9 @@ namespace SanteDB.Caching.Memory.Session
                         claims.Add(new SanteDBClaim(SanteDBClaimTypes.Language, lang));
                     }
 
-                    var session = new MemorySession(Guid.NewGuid(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), claims.ToArray(), principal);
-                    this.Established?.Invoke(this, new SessionEstablishedEventArgs(session, true, isOverride, purpose, scope));
+                    var session = new MemorySession(Guid.NewGuid().ToByteArray(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), claims.ToArray(), principal);
+                    this.m_session.Add(session.Id.HexEncode(), session, expiration);
+                    this.Established?.Invoke(this, new SessionEstablishedEventArgs(principal, session, true, isOverride, purpose, scope));
                     return session;
                 }
                 catch(Exception e)
@@ -256,7 +274,7 @@ namespace SanteDB.Caching.Memory.Session
 
                 // Extend 
                 var expiration = DateTimeOffset.Now.Add(this.m_securityConfig.GetSecurityPolicy<TimeSpan>(SecurityPolicyIdentification.SessionLength, new TimeSpan(1, 0, 0)));
-                session = new MemorySession(Guid.NewGuid(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), session.Claims, newPrincipal);
+                session = new MemorySession(Guid.NewGuid().ToByteArray(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), session.Claims, newPrincipal);
 
                 this.Extended?.Invoke(this, new SessionEstablishedEventArgs(null, session, true, false,
                             session.Claims.FirstOrDefault(o=>o.Type == SanteDBClaimTypes.PurposeOfUse)?.Value,

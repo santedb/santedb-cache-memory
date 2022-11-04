@@ -18,10 +18,10 @@ namespace SanteDB.Caching.Memory.Session
         /// <summary>
         /// Create a new memory session
         /// </summary>
-        internal MemorySession(Guid id, DateTimeOffset notBefore, DateTimeOffset notAfter, byte[] refreshToken, IClaim[] claims, IPrincipal principal)
+        internal MemorySession(byte[] id, DateTimeOffset notBefore, DateTimeOffset notAfter, byte[] refreshToken, IClaim[] claims, IPrincipal principal)
         {
             this.m_claims = new List<IClaim>(claims);
-            this.Id = id.ToByteArray();
+            this.Id = id;
             this.NotBefore = notBefore;
             this.NotAfter = notAfter;
             this.RefreshToken = refreshToken;

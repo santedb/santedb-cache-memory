@@ -46,11 +46,11 @@ namespace SanteDB.Caching.Memory.Session
         /// DI Constructor
         /// </summary>
         public MemorySessionManagerService(IConfigurationManager configurationManager,
-            ISessionTokenEncodingService sessionTokenEncodingService, 
-            ILocalizationService localizationService, 
-            IPolicyDecisionService pdpService, 
+            ISessionTokenEncodingService sessionTokenEncodingService,
+            ILocalizationService localizationService,
+            IPolicyDecisionService pdpService,
             IPolicyEnforcementService pepService,
-            IPolicyInformationService pipService, 
+            IPolicyInformationService pipService,
             IIdentityProviderService identityProviderService)
         {
             this.m_sessionTokenEncoder = sessionTokenEncodingService;
@@ -72,7 +72,7 @@ namespace SanteDB.Caching.Memory.Session
         /// <inheritdoc/>
         public void Abandon(ISession session)
         {
-            if(session == null)
+            if (session == null)
             {
                 throw new ArgumentNullException(nameof(session), ErrorMessages.ARGUMENT_NULL);
             }
@@ -84,8 +84,6 @@ namespace SanteDB.Caching.Memory.Session
                 this.m_pdpService?.ClearCache(memSession.Principal);
                 this.Abandoned?.Invoke(this, new SessionEstablishedEventArgs(memSession.Principal, memSession, true, false, null, null));
             }
-            else
-                this.Abandoned?.Invoke(this, new SessionEstablishedEventArgs(null, null, false, false, null, null));
         }
 
         /// <inheritdoc/>
@@ -97,7 +95,7 @@ namespace SanteDB.Caching.Memory.Session
             }
 
             var memSession = this.m_session.Get(session.Id.HexEncode()) as MemorySession;
-            if(memSession == null)
+            if (memSession == null)
             {
                 throw new KeyNotFoundException(this.m_localizationService.GetString(ErrorMessageStrings.SESSION_TOKEN_INVALID));
             }
@@ -112,7 +110,7 @@ namespace SanteDB.Caching.Memory.Session
         /// <inheritdoc/>
         public ISession Establish(IPrincipal principal, string remoteEp, bool isOverride, string purpose, string[] scope, string lang)
         {
-            if(principal == null)
+            if (principal == null)
             {
                 throw new ArgumentNullException(nameof(principal), ErrorMessages.ARGUMENT_NULL);
             }
@@ -129,7 +127,7 @@ namespace SanteDB.Caching.Memory.Session
                 scope = new string[] { "*" };
             }
 
-            if(principal is ITokenPrincipal tokenPrincipal) // We got this from the upstream so we want to just store it
+            if (principal is ITokenPrincipal tokenPrincipal) // We got this from the upstream so we want to just store it
             {
                 // Try to hext decode 
                 var decodedSessionToken = this.m_sessionTokenEncoder.ExtractSessionIdentity(tokenPrincipal.AccessToken);
@@ -229,7 +227,7 @@ namespace SanteDB.Caching.Memory.Session
                     this.Established?.Invoke(this, new SessionEstablishedEventArgs(principal, session, true, isOverride, purpose, scope));
                     return session;
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     this.Established?.Invoke(this, new SessionEstablishedEventArgs(principal, null, false, isOverride, purpose, scope));
                     throw new SecuritySessionException(SessionExceptionType.NotEstablished, this.m_localizationService.GetString(ErrorMessageStrings.SESSION_GEN_ERR), e);
@@ -277,11 +275,11 @@ namespace SanteDB.Caching.Memory.Session
                 session = new MemorySession(Guid.NewGuid().ToByteArray(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), session.Claims, newPrincipal);
 
                 this.Extended?.Invoke(this, new SessionEstablishedEventArgs(null, session, true, false,
-                            session.Claims.FirstOrDefault(o=>o.Type == SanteDBClaimTypes.PurposeOfUse)?.Value,
-                            session.Claims.Where(o=>o.Type == SanteDBClaimTypes.SanteDBScopeClaim).Select(o => o.Value).ToArray()));
+                            session.Claims.FirstOrDefault(o => o.Type == SanteDBClaimTypes.PurposeOfUse)?.Value,
+                            session.Claims.Where(o => o.Type == SanteDBClaimTypes.SanteDBScopeClaim).Select(o => o.Value).ToArray()));
                 return session;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 throw new SecuritySessionException(SessionExceptionType.Other, this.m_localizationService.GetString(ErrorMessageStrings.SESSION_GEN_ERR), e);
             }

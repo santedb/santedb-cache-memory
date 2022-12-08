@@ -24,7 +24,9 @@ using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Services;
 using System;
 using System.Collections.Specialized;
+using System.Linq;
 using System.Runtime.Caching;
+using System.Text.RegularExpressions;
 
 namespace SanteDB.Caching.Memory
 {
@@ -145,6 +147,17 @@ namespace SanteDB.Caching.Memory
         public bool Remove(string key)
         {
             return this.m_cache.Remove(key) != null;
+        }
+
+        /// <inheritdoc/>
+        public void RemoveAll(string pattern)
+        {
+            var regex = new Regex(pattern);
+            var keys = this.m_cache.Where(o => regex.IsMatch(o.Key)).Select(o=>o.Key).ToList();
+            foreach(var k in keys)
+            {
+                this.Remove(k);
+            }
         }
 
         /// <summary>

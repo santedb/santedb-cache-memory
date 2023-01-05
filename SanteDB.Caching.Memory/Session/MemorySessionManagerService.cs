@@ -81,6 +81,7 @@ namespace SanteDB.Caching.Memory.Session
             if (memSession != null)
             {
                 this.m_session.Remove(session.Id.HexEncode());
+                this.m_session.Remove(session.RefreshToken.HexEncode());
                 this.m_pdpService?.ClearCache(memSession.Principal);
                 this.Abandoned?.Invoke(this, new SessionEstablishedEventArgs(memSession.Principal, memSession, true, false, null, null));
             }
@@ -133,6 +134,8 @@ namespace SanteDB.Caching.Memory.Session
                 var decodedSessionToken = this.m_sessionTokenEncoder.ExtractSessionIdentity(tokenPrincipal.AccessToken);
                 var session = new MemorySession(decodedSessionToken, DateTimeOffset.Now, tokenPrincipal.ExpiresAt, Encoding.UTF8.GetBytes(tokenPrincipal.RefreshToken), tokenPrincipal.Claims.ToArray(), principal);
                 this.m_session.Add(session.Id.HexEncode(), session, tokenPrincipal.ExpiresAt.ToLocalTime());
+                this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), tokenPrincipal.ExpiresAt);
+
                 this.Established?.Invoke(this, new SessionEstablishedEventArgs(principal, session, true, isOverride, purpose, scope));
                 return session;
             }
@@ -224,6 +227,7 @@ namespace SanteDB.Caching.Memory.Session
 
                     var session = new MemorySession(Guid.NewGuid().ToByteArray(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), claims.ToArray(), principal);
                     this.m_session.Add(session.Id.HexEncode(), session, expiration);
+                    this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), expiration);
                     this.Established?.Invoke(this, new SessionEstablishedEventArgs(principal, session, true, isOverride, purpose, scope));
                     return session;
                 }
@@ -247,41 +251,53 @@ namespace SanteDB.Caching.Memory.Session
                 throw new ArgumentNullException(nameof(refreshToken), this.m_localizationService.GetString(ErrorMessageStrings.ARGUMENT_NULL));
             }
 
-            var refreshTokenId = new Guid(refreshToken);
-            var session = this.m_session.OfType<MemorySession>().FirstOrDefault(o => o.RefreshToken == refreshToken);
+            var sessionIdObject = this.m_session.Get(refreshToken.HexEncode());
+            if (sessionIdObject is String sessionId)
+            {
+                var session = this.m_session.Get(sessionId) as MemorySession;
 
-            if (session == null)
+                if (session == null)
+                {
+                    throw new KeyNotFoundException(this.m_localizationService.GetString(ErrorMessageStrings.SESSION_TOKEN_INVALID));
+                }
+                else if (session.NotAfter < DateTimeOffset.Now)
+                {
+                    throw new SecuritySessionException(SessionExceptionType.Expired, this.m_localizationService.GetString(ErrorMessageStrings.SESSION_REFRESH_EXPIRE), null);
+                }
+
+                // Validate the session is not a special session 
+                if (session.Claims.Any(c => c.Type == SanteDBClaimTypes.SanteDBOverrideClaim && c.Value == "true" || c.Type == SanteDBClaimTypes.PurposeOfUse && c.Value == PurposeOfUseKeys.SecurityAdmin.ToString()))
+                {
+                    throw new SecurityException(this.m_localizationService.GetString(ErrorMessageStrings.ELEVATED_SESSION_NO_EXTENSION));
+                }
+
+                try
+                {
+                    var newPrincipal = this.m_identityProvider.ReAuthenticate(session.Principal);
+                    this.Abandon(session);
+
+                    // Extend 
+                    var expiration = DateTimeOffset.Now.Add(this.m_securityConfig.GetSecurityPolicy<TimeSpan>(SecurityPolicyIdentification.SessionLength, new TimeSpan(1, 0, 0)));
+                    session = new MemorySession(Guid.NewGuid().ToByteArray(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), session.Claims, newPrincipal);
+
+                    this.Extended?.Invoke(this, new SessionEstablishedEventArgs(null, session, true, false,
+                                session.Claims.FirstOrDefault(o => o.Type == SanteDBClaimTypes.PurposeOfUse)?.Value,
+                                session.Claims.Where(o => o.Type == SanteDBClaimTypes.SanteDBScopeClaim).Select(o => o.Value).ToArray()));
+
+                    this.m_session.Add(session.Id.HexEncode(), session, expiration);
+                    this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), expiration);
+
+                    return session;
+                }
+                catch (Exception e)
+                {
+                    throw new SecuritySessionException(SessionExceptionType.Other, this.m_localizationService.GetString(ErrorMessageStrings.SESSION_GEN_ERR), e);
+                }
+            }
+            else
             {
                 throw new KeyNotFoundException(this.m_localizationService.GetString(ErrorMessageStrings.SESSION_TOKEN_INVALID));
-            }
-            else if (session.NotAfter < DateTimeOffset.Now)
-            {
-                throw new SecuritySessionException(SessionExceptionType.Expired, this.m_localizationService.GetString(ErrorMessageStrings.SESSION_REFRESH_EXPIRE), null);
-            }
 
-            // Validate the session is not a special session 
-            if (session.Claims.Any(c => c.Type == SanteDBClaimTypes.SanteDBOverrideClaim && c.Value == "true" || c.Type == SanteDBClaimTypes.PurposeOfUse && c.Value == PurposeOfUseKeys.SecurityAdmin.ToString()))
-            {
-                throw new SecurityException(this.m_localizationService.GetString(ErrorMessageStrings.ELEVATED_SESSION_NO_EXTENSION));
-            }
-
-            try
-            {
-                var newPrincipal = this.m_identityProvider.ReAuthenticate(session.Principal);
-                this.Abandon(session);
-
-                // Extend 
-                var expiration = DateTimeOffset.Now.Add(this.m_securityConfig.GetSecurityPolicy<TimeSpan>(SecurityPolicyIdentification.SessionLength, new TimeSpan(1, 0, 0)));
-                session = new MemorySession(Guid.NewGuid().ToByteArray(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), session.Claims, newPrincipal);
-
-                this.Extended?.Invoke(this, new SessionEstablishedEventArgs(null, session, true, false,
-                            session.Claims.FirstOrDefault(o => o.Type == SanteDBClaimTypes.PurposeOfUse)?.Value,
-                            session.Claims.Where(o => o.Type == SanteDBClaimTypes.SanteDBScopeClaim).Select(o => o.Value).ToArray()));
-                return session;
-            }
-            catch (Exception e)
-            {
-                throw new SecuritySessionException(SessionExceptionType.Other, this.m_localizationService.GetString(ErrorMessageStrings.SESSION_GEN_ERR), e);
             }
         }
 

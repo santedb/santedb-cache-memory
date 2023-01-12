@@ -70,8 +70,9 @@ namespace SanteDB.Caching.Memory
                 };
             }
             var config = new NameValueCollection();
-            config.Add("CacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "512");
-            config.Add("PollingInterval", "00:05:00");
+            config.Add("CacheMemoryLimitMegabytes", ((this.m_configuration?.MaxCacheSize ?? 512) * 0.25).ToString());
+            config.Add("PhysicalMemoryLimitPercentage", "20");
+            config.Add("PollingInterval", "00:01:00");
             this.m_cache = new MemoryCache("santedb.adhoc", config, true);
 
 

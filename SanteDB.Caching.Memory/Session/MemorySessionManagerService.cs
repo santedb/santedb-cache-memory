@@ -132,7 +132,7 @@ namespace SanteDB.Caching.Memory.Session
             {
                 // Try to hext decode 
                 var decodedSessionToken = this.m_sessionTokenEncoder.ExtractSessionIdentity(tokenPrincipal.AccessToken);
-                var session = new MemorySession(decodedSessionToken, DateTimeOffset.Now, tokenPrincipal.ExpiresAt, Encoding.UTF8.GetBytes(tokenPrincipal.RefreshToken), tokenPrincipal.Claims.ToArray(), principal);
+                var session = new MemorySession(decodedSessionToken, DateTimeOffset.Now, tokenPrincipal.ExpiresAt, tokenPrincipal.RefreshToken != null ? Encoding.UTF8.GetBytes(tokenPrincipal.RefreshToken) : null, tokenPrincipal.Claims.ToArray(), principal);
                 this.m_session.Add(session.Id.HexEncode(), session, tokenPrincipal.ExpiresAt.ToLocalTime());
                 this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), tokenPrincipal.ExpiresAt);
 

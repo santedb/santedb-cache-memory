@@ -32,7 +32,7 @@ namespace SanteDB.Caching.Memory.Session
         /// <summary>
         /// Get the refresh token
         /// </summary>
-        internal String RefreshTokenString => this.RefreshToken.HexEncode();
+        internal String RefreshTokenString => this.RefreshToken?.HexEncode();
 
         /// <summary>
         /// Gets the identifier of the session

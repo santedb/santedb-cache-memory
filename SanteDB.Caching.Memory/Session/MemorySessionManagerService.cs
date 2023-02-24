@@ -134,7 +134,10 @@ namespace SanteDB.Caching.Memory.Session
                 var decodedSessionToken = this.m_sessionTokenEncoder.ExtractSessionIdentity(tokenPrincipal.AccessToken);
                 var session = new MemorySession(decodedSessionToken, DateTimeOffset.Now, tokenPrincipal.ExpiresAt, tokenPrincipal.RefreshToken != null ? Encoding.UTF8.GetBytes(tokenPrincipal.RefreshToken) : null, tokenPrincipal.Claims.ToArray(), principal);
                 this.m_session.Add(session.Id.HexEncode(), session, tokenPrincipal.ExpiresAt.ToLocalTime());
-                this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), tokenPrincipal.ExpiresAt);
+                if (session.RefreshToken != null)
+                {
+                    this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), tokenPrincipal.ExpiresAt);
+                }
 
                 this.Established?.Invoke(this, new SessionEstablishedEventArgs(principal, session, true, isOverride, purpose, scope));
                 return session;
@@ -227,7 +230,12 @@ namespace SanteDB.Caching.Memory.Session
 
                     var session = new MemorySession(Guid.NewGuid().ToByteArray(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), claims.ToArray(), principal);
                     this.m_session.Add(session.Id.HexEncode(), session, expiration);
-                    this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), expiration);
+
+                    if (session.RefreshToken != null)
+                    {
+                        this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), expiration);
+                    }
+
                     this.Established?.Invoke(this, new SessionEstablishedEventArgs(principal, session, true, isOverride, purpose, scope));
                     return session;
                 }
@@ -285,7 +293,10 @@ namespace SanteDB.Caching.Memory.Session
                                 session.Claims.Where(o => o.Type == SanteDBClaimTypes.SanteDBScopeClaim).Select(o => o.Value).ToArray()));
 
                     this.m_session.Add(session.Id.HexEncode(), session, expiration);
-                    this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), expiration);
+                    if (session.RefreshToken != null)
+                    {
+                        this.m_session.Add(session.RefreshTokenString, session.Id.HexEncode(), expiration);
+                    }
 
                     return session;
                 }

@@ -16,17 +16,14 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-10-21
+ * Date: 2022-5-30
  */
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
-using SanteDB.Core.Model.Acts;
 using SanteDB.Core.Model.Attributes;
 using SanteDB.Core.Model.Collection;
-using SanteDB.Core.Model.Entities;
 using SanteDB.Core.Model.Interfaces;
-using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using System;
 using System.Collections;
@@ -125,14 +122,15 @@ namespace SanteDB.Caching.Memory
             {
                 this.m_configuration = new MemoryCacheConfigurationSection()
                 {
-                    MaxCacheAge = 60,
+                    MaxCacheAge = 600,
                     MaxCacheSize = 1024,
                     MaxQueryAge = 3600
                 };
             }
             var config = new NameValueCollection();
-            config.Add("CacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "512");
-            config.Add("PollingInterval", "00:05:00");
+            config.Add("CacheMemoryLimitMegabytes", ((this.m_configuration?.MaxCacheSize ?? 512) * 0.5).ToString());
+            config.Add("PhysicalMemoryLimitPercentage", "50");
+            config.Add("PollingInterval", "00:01:00");
 
             this.m_cache = new MemoryCache("santedb", config);
         }
@@ -146,7 +144,9 @@ namespace SanteDB.Caching.Memory
 
             // Look for non-cached types
             foreach (var itm in typeof(IdentifiedData).Assembly.GetTypes().Where(o => o.GetCustomAttribute<NonCachedAttribute>() != null || o.GetCustomAttribute<XmlRootAttribute>() == null))
+            {
                 this.m_nonCached.Add(itm);
+            }
 
             this.Started?.Invoke(this, EventArgs.Empty);
             return true;
@@ -170,9 +170,13 @@ namespace SanteDB.Caching.Memory
                     foreach (var itm in bundle.Item)
                     {
                         if (itm.BatchOperation == Core.Model.DataTypes.BatchOperationType.Delete)
+                        {
                             this.Remove(itm);
+                        }
                         else
+                        {
                             this.Add(itm);
+                        }
                     }
                     break;
                 case ISimpleAssociation sa:
@@ -194,13 +198,15 @@ namespace SanteDB.Caching.Memory
 
                                     // Re-add
                                     if (data.BatchOperation != Core.Model.DataTypes.BatchOperationType.Delete)
+                                    {
                                         list.Add(data);
+                                    }
                                 }
                             }
 
                             if (host is ITaggable ite)
                             {
-                                ite.AddTag(SanteDBConstants.DcdrRefetchTag, "true");
+                                ite.AddTag(SanteDBModelConstants.DcdrRefetchTag, "true");
                             }
                             this.Add(host as IdentifiedData); // refresh 
 
@@ -211,7 +217,6 @@ namespace SanteDB.Caching.Memory
             //data.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
 
         }
-
 
         /// <inheritdoc/>
         public bool Stop()
@@ -225,27 +230,23 @@ namespace SanteDB.Caching.Memory
         }
 
         /// <inheritdoc/>
-        public TData GetCacheItem<TData>(Guid key) where TData : IdentifiedData
-        {
-            var retVal = this.m_cache.Get(key.ToString());
-            if (retVal is TData dat)
-                return (TData)dat.DeepCopy();
-            else
-            {
-                this.Remove(key); // wrong type -
-                return default(TData);
-            }
-        }
+        public TData GetCacheItem<TData>(Guid key) where TData : IdentifiedData => this.GetCacheItem(key) as TData;
 
         /// <inheritdoc/>
         /// <threadsafety static="true" instance="true"/>
         public IdentifiedData GetCacheItem(Guid key)
         {
             var retVal = this.m_cache.Get(key.ToString());
-            if (retVal is ICanDeepCopy icdc)
-                return icdc.DeepCopy() as IdentifiedData;
+            if (retVal is IdentifiedData id)
+            {
+                var cloned = id.DeepCopy() as IdentifiedData;
+                cloned.AddAnnotation(id.GetAnnotations<LoadMode>().FirstOrDefault());
+                return cloned;
+            }
             else
-                return retVal as IdentifiedData;
+            {
+                return null;
+            }
         }
 
         /// <inheritdoc/>
@@ -271,6 +272,8 @@ namespace SanteDB.Caching.Memory
 
             var dataClone = data.DeepCopy() as IdentifiedData;
             dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
+            dataClone.AddAnnotation(data.GetAnnotations<LoadMode>().FirstOrDefault());
+
             if (data is ITaggable taggable)
             {
                 // TODO: Put this as a constant
@@ -280,12 +283,11 @@ namespace SanteDB.Caching.Memory
                     return;
                 }
 
-                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") || o.TagKey != SanteDBConstants.DcdrRefetchTag);
+                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") || o.TagKey != SanteDBModelConstants.DcdrRefetchTag);
 
             }
 
             this.m_cache.Set(data.Key.ToString(), dataClone, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge));
-
             // If this is a relationship class we remove the source entity from the cache
             if (data is ITargetedAssociation targetedAssociation)
             {
@@ -293,12 +295,18 @@ namespace SanteDB.Caching.Memory
                 this.m_cache.Remove(targetedAssociation.TargetEntityKey.ToString());
             }
             else if (data is ISimpleAssociation simpleAssociation)
+            {
                 this.m_cache.Remove(simpleAssociation.SourceEntityKey.ToString());
+            }
 
             if (exist != null)
+            {
                 this.Updated?.Invoke(this, new DataCacheEventArgs(data));
+            }
             else
+            {
                 this.Added?.Invoke(this, new DataCacheEventArgs(data));
+            }
         }
 
         /// <inheritdoc/>
@@ -330,6 +338,14 @@ namespace SanteDB.Caching.Memory
         public void Clear()
         {
             this.m_cache.Trim(100);
+        }
+
+        /// <summary>
+        /// Determines if the object exists
+        /// </summary>
+        public bool Exists<T>(Guid id) where T : IdentifiedData
+        {
+            return this.m_cache.Get(id.ToString()) is T;
         }
 
         /// <inheritdoc/>

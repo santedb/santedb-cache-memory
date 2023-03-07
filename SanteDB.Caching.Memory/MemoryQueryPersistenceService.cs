@@ -16,21 +16,17 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-10-21
+ * Date: 2022-5-30
  */
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
-using SanteDB.Core.Jobs;
 using SanteDB.Core.Services;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.Caching;
-using System.Threading;
-using System.Timers;
 
 namespace SanteDB.Caching.Memory
 {
@@ -87,9 +83,8 @@ namespace SanteDB.Caching.Memory
         }
 
         //  trace source
-        private Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
+        private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
 
-        // Configuration
         private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
 
         // Cache backing
@@ -101,8 +96,9 @@ namespace SanteDB.Caching.Memory
         public MemoryQueryPersistenceService()
         {
             var config = new NameValueCollection();
-            config.Add("CacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "512");
-            config.Add("PollingInterval", "00:05:00");
+            config.Add("CacheMemoryLimitMegabytes", ((this.m_configuration?.MaxCacheSize ?? 512) * 0.25).ToString());
+            config.Add("PhysicalMemoryLimitPercentage", "20");
+            config.Add("PollingInterval", "00:01:00");
             this.m_cache = new MemoryCache("santedb.query", config);
         }
 
@@ -117,12 +113,17 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.GetCacheItem($"qry.{queryId}");
             if (cacheResult == null)
+            {
                 return; // no item
+            }
             else if (cacheResult.Value is MemoryQueryInfo retVal)
             {
                 this.m_tracer.TraceVerbose("Updating query {0} ({1} results)", queryId, results.Count());
                 lock (retVal.Results)
+                {
                     retVal.Results.AddRange(results.Where(o => !retVal.Results.Contains(o)).Select(o => o));
+                }
+
                 retVal.TotalResults = totalResults;
                 this.m_cache.Set(cacheResult.Key, cacheResult.Value, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxQueryAge));
                 //retVal.TotalResults = retVal.Results.Count();
@@ -134,8 +135,13 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
+            {
                 lock (retVal.Results)
+                {
                     return retVal.Results.ToArray().Distinct().Skip(startRecord).Take(nRecords).OfType<Guid>().ToArray();
+                }
+            }
+
             return null;
         }
 
@@ -144,7 +150,10 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
+            {
                 return retVal.QueryTag;
+            }
+
             return null;
         }
 
@@ -159,7 +168,10 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
+            {
                 return retVal.TotalResults;
+            }
+
             return 0;
         }
 
@@ -172,7 +184,7 @@ namespace SanteDB.Caching.Memory
                 Results = results.Select(o => o).ToList(),
                 TotalResults = totalResults,
                 Key = queryId
-            }, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxQueryAge));
+            }, DateTimeOffset.Now.AddSeconds(this.m_configuration?.MaxQueryAge ?? 3600));
             return true;
         }
 
@@ -187,7 +199,17 @@ namespace SanteDB.Caching.Memory
         {
             var cacheResult = this.m_cache.Get($"qry.{queryId}");
             if (cacheResult is MemoryQueryInfo retVal)
+            {
                 retVal.QueryTag = tagValue;
+            }
+        }
+
+        /// <summary>
+        /// Abort the query result set
+        /// </summary>
+        public void AbortQuerySet(Guid queryId)
+        {
+            this.m_cache.Remove($"qry.{queryId}");
         }
     }
 }

@@ -16,20 +16,17 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-10-21
+ * Date: 2022-5-30
  */
 using SanteDB.Caching.Memory.Configuration;
-using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Services;
 using System;
-using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Runtime.Caching;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace SanteDB.Caching.Memory
 {
@@ -50,10 +47,9 @@ namespace SanteDB.Caching.Memory
         public string ServiceName => "Memory Ad-Hoc Caching Service";
 
         //  trace source
-        private Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
+        private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
 
-        // Configuration reference
-        private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
+        private readonly MemoryCacheConfigurationSection m_configuration;
 
         // The backing cache
         private MemoryCache m_cache;
@@ -61,14 +57,25 @@ namespace SanteDB.Caching.Memory
         /// <summary>
         /// Ad-hoc cache initialization
         /// </summary>
-        public MemoryAdhocCacheService()
+        public MemoryAdhocCacheService(IConfigurationManager configurationManager)
         {
+            this.m_configuration = configurationManager.GetSection<MemoryCacheConfigurationSection>();
+            if (this.m_configuration == null)
+            {
+                this.m_configuration = new MemoryCacheConfigurationSection()
+                {
+                    MaxCacheAge = 60,
+                    MaxCacheSize = 512,
+                    MaxQueryAge = 3600
+                };
+            }
             var config = new NameValueCollection();
-            config.Add("CacheMemoryLimitMegabytes", this.m_configuration?.MaxCacheSize.ToString() ?? "512");
-            config.Add("PollingInterval", "00:05:00");
+            config.Add("CacheMemoryLimitMegabytes", ((this.m_configuration?.MaxCacheSize ?? 512) * 0.25).ToString());
+            config.Add("PhysicalMemoryLimitPercentage", "20");
+            config.Add("PollingInterval", "00:01:00");
             this.m_cache = new MemoryCache("santedb.adhoc", config, true);
 
-            
+
 
         }
 
@@ -90,7 +97,7 @@ namespace SanteDB.Caching.Memory
             }
             catch (Exception e)
             {
-                this.m_tracer.TraceError("Error adding {0} to cache", value);
+                this.m_tracer.TraceError("Error adding {0} to cache - {1}", value, e.Message);
                 //throw new Exception($"Error adding {value} to cache", e);
             }
         }
@@ -100,18 +107,38 @@ namespace SanteDB.Caching.Memory
         /// </summary>
         public T Get<T>(string key)
         {
+            if(this.TryGet<T>(key, out T value))
+            {
+                return value;
+            }
+            else
+            {
+                return default(T);
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool TryGet<T>(String key, out T value)
+        {
             try
             {
                 var data = this.m_cache.Get(key);
                 if (data == null || data == DBNull.Value)
-                    return default(T);
-                return (T)data;
+                {
+                    value = default(T);
+                }
+                else
+                {
+                    value = (T)data;
+                }
+                return this.m_cache.Contains(key);
             }
             catch (Exception e)
             {
-                this.m_tracer.TraceError("Error fetch {0} from cache", key);
+                this.m_tracer.TraceError("Error fetch {0} from cache - {1}", key, e.Message);
                 //throw new Exception($"Error fetching {key} ({typeof(T).FullName}) from cache", e);
-                return default(T);
+                value = default(T);
+                return false;
             }
         }
 
@@ -124,6 +151,19 @@ namespace SanteDB.Caching.Memory
         }
 
         /// <inheritdoc/>
+        public void RemoveAll(string pattern)
+        {
+            var regex = new Regex(pattern);
+            var keys = this.m_cache.Where(o => regex.IsMatch(o.Key)).Select(o=>o.Key).ToList();
+            foreach(var k in keys)
+            {
+                this.Remove(k);
+            }
+        }
+
+        /// <summary>
+        /// Return true if the cache item exists in cache
+        /// </summary>
         public bool Exists(string key)
         {
             return this.m_cache.Contains(key);

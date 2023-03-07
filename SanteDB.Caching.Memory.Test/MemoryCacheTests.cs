@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,18 +16,17 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2022-5-30
  */
-
-using System;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Threading;
 using NUnit.Framework;
 using SanteDB.Core;
 using SanteDB.Core.Model.DataTypes;
 using SanteDB.Core.Services;
 using SanteDB.Core.TestFramework;
+using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Threading;
 
 namespace SanteDB.Caching.Memory.Test
 {
@@ -87,7 +86,7 @@ namespace SanteDB.Caching.Memory.Test
             var ret = ApplicationServiceContext.Current.GetService<IDataCachingService>().GetCacheItem<Concept>(k);
             Assert.IsNotNull(ret);
 
-            Thread.Sleep(10000); // wait 10 secs
+            Thread.Sleep(2000); // wait 10 secs
             ret = ApplicationServiceContext.Current.GetService<IDataCachingService>().GetCacheItem<Concept>(k);
             Assert.IsNull(ret);
         }
@@ -161,10 +160,10 @@ namespace SanteDB.Caching.Memory.Test
             {
                 Message = "I AM COMPLEX",
                 Value = 2
-            }, new TimeSpan(0, 0, 5));
+            }, new TimeSpan(0, 0, 2));
             dynamic val = ApplicationServiceContext.Current.GetService<IAdhocCacheService>().Get<dynamic>("COMPLEX");
             Assert.AreEqual("I AM COMPLEX", val.Message);
-            Thread.Sleep(10000);
+            Thread.Sleep(3000);
             // Should be gone
             val = ApplicationServiceContext.Current.GetService<IAdhocCacheService>().Get<dynamic>("COMPLEX");
             Assert.IsNull(val);

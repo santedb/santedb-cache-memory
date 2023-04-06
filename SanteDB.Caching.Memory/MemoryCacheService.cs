@@ -128,7 +128,7 @@ namespace SanteDB.Caching.Memory
                 };
             }
             var config = new NameValueCollection();
-            config.Add("CacheMemoryLimitMegabytes", ((this.m_configuration?.MaxCacheSize ?? 512) * 0.5).ToString());
+            config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 512) * 0.5).ToString());
             config.Add("PhysicalMemoryLimitPercentage", "50");
             config.Add("PollingInterval", "00:01:00");
 

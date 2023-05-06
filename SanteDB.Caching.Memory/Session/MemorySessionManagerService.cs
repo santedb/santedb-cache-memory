@@ -359,10 +359,17 @@ namespace SanteDB.Caching.Memory.Session
             }
         }
 
+        /// <inheritdoc/>
         public ISession[] GetUserSessions(Guid userKey)
         {
-            //TODO: Implement
-            throw new NotSupportedException(m_localizationService.GetString(ErrorMessageStrings.NOT_FOUND, new { type = "user", id = userKey }));
+            var identity = this.m_identityProvider.GetIdentity(userKey);
+            return this.m_session.OfType<MemorySession>().Where(o => o.Principal.Identity.Name == identity.Name && o.NotAfter > DateTimeOffset.Now).OfType<ISession>().ToArray();
+        }
+
+        /// <inheritdoc/>
+        public ISession[] GetActiveSessions()
+        {
+            return this.m_session.OfType<MemorySession>().Where(o => o.NotAfter > DateTimeOffset.Now).OfType<ISession>().ToArray();
         }
     }
 }

@@ -129,7 +129,7 @@ namespace SanteDB.Caching.Memory.Session
         }
 
         /// <inheritdoc/>
-        public ISession Establish(IPrincipal principal, string remoteEp, bool isOverride, string purpose, string[] scope, string lang)
+        public ISession Establish(IPrincipal principal, string remoteEp,  bool isOverride, string purpose, string[] scope, string lang)
         {
             if (principal == null)
             {
@@ -230,7 +230,18 @@ namespace SanteDB.Caching.Memory.Session
                     var claims = new List<IClaim>(claimsPrincipal.Claims);
                     // Add claims
                     claims.AddRange(sessionScopes.Distinct().Select(o => new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, o)));
+                    
+                    if(!String.IsNullOrEmpty(remoteEp))
+                    {
+                        claims.Add(new SanteDBClaim(SanteDBClaimTypes.RemoteEndpointClaim, remoteEp));
+                    }
 
+                    // Attempt to grab the audience from the authenticated application
+                    var app = claimsPrincipal.Identities.OfType<IApplicationIdentity>().FirstOrDefault();
+                    if (app != null)
+                    {
+                        claims.Add(new SanteDBClaim(SanteDBClaimTypes.AudienceClaim, app.Name));
+                    }
                     // Override?
                     if (isOverride)
                     {

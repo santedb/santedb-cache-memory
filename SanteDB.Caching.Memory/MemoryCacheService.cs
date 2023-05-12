@@ -23,6 +23,7 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Attributes;
 using SanteDB.Core.Model.Collection;
+using SanteDB.Core.Model.Constants;
 using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Services;
 using System;
@@ -206,7 +207,7 @@ namespace SanteDB.Caching.Memory
 
                             if (host is ITaggable ite)
                             {
-                                ite.AddTag(SanteDBModelConstants.DcdrRefetchTag, "true");
+                                ite.AddTag(SystemTagNames.DcdrRefetchTag, "true");
                             }
                             this.Add(host as IdentifiedData); // refresh 
 
@@ -283,7 +284,7 @@ namespace SanteDB.Caching.Memory
                     return;
                 }
 
-                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") || o.TagKey != SanteDBModelConstants.DcdrRefetchTag);
+                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") || o.TagKey != SystemTagNames.DcdrRefetchTag);
 
             }
 

@@ -107,7 +107,7 @@ namespace SanteDB.Caching.Memory
         /// </summary>
         public T Get<T>(string key)
         {
-            if(this.TryGet<T>(key, out T value))
+            if (this.TryGet<T>(key, out T value))
             {
                 return value;
             }
@@ -154,8 +154,8 @@ namespace SanteDB.Caching.Memory
         public void RemoveAll(string pattern)
         {
             var regex = new Regex(pattern);
-            var keys = this.m_cache.Where(o => regex.IsMatch(o.Key)).Select(o=>o.Key).ToList();
-            foreach(var k in keys)
+            var keys = this.m_cache.Where(o => regex.IsMatch(o.Key)).Select(o => o.Key).ToList();
+            foreach (var k in keys)
             {
                 this.Remove(k);
             }

@@ -237,7 +237,7 @@ namespace SanteDB.Caching.Memory
         /// <threadsafety static="true" instance="true"/>
         public IdentifiedData GetCacheItem(Guid key)
         {
-            var retVal = this.m_cache.Get(key.ToString());
+            var retVal = this.m_cache?.Get(key.ToString());
             if (retVal is IdentifiedData id)
             {
                 var cloned = id.DeepCopy() as IdentifiedData;

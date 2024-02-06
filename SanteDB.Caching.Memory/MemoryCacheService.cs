@@ -284,7 +284,7 @@ namespace SanteDB.Caching.Memory
                     return;
                 }
 
-                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") || o.TagKey != SystemTagNames.DcdrRefetchTag);
+                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") && o.TagKey != SystemTagNames.DcdrRefetchTag);
 
             }
 

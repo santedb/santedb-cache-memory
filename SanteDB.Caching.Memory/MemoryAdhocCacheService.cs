@@ -131,7 +131,7 @@ namespace SanteDB.Caching.Memory
                 {
                     value = (T)data;
                 }
-                return this.m_cache.Contains(key);
+                return data != null || this.m_cache.Contains(key);
             }
             catch (Exception e)
             {

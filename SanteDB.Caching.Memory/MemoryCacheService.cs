@@ -275,7 +275,7 @@ namespace SanteDB.Caching.Memory
             dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
             dataClone.AddAnnotation(data.GetAnnotations<LoadMode>().FirstOrDefault());
 
-            if (data is ITaggable taggable)
+            if (dataClone is ITaggable taggable)
             {
                 // TODO: Put this as a constant
                 // Don't cache generated data

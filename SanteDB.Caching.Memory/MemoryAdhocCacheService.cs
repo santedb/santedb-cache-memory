@@ -94,8 +94,9 @@ namespace SanteDB.Caching.Memory
                 }
                 else
                 {
-                    cacheItem.Value = value;
+                    cacheItem.Value = (object)value ?? DBNull.Value; 
                 }
+
                 this.m_cache.Set(cacheItem, new CacheItemPolicy()
                 {
                     AbsoluteExpiration = DateTimeOffset.Now.Add(timeout ?? this.m_maxCacheAge),

@@ -56,9 +56,10 @@ namespace SanteDB.Caching.Memory.Docker
         /// <remarks>
         /// <list type="table">
         ///     <item><term>SDB_RAMCACHE_TTL</term><description>The maximum time to live of all cache objects</description></item>
+        ///     <item><term>SDB_RAMCACHE_MAXMB</term><description>The maximum average size (in megabytes/mebibytes) of all cache objects.</description></item>
         /// </list>
         /// </remarks>
-        public IEnumerable<string> Settings => new String[] { MaxAgeSetting };
+        public IEnumerable<string> Settings => new String[] { MaxAgeSetting, MaxSizeSetting };
 
         /// <summary>
         /// Configure this service

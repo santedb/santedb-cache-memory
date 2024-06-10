@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Caching.Memory.Configuration;
 using SanteDB.Core.Diagnostics;
@@ -49,6 +49,7 @@ namespace SanteDB.Caching.Memory
         //  trace source
         private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
 
+        private readonly TimeSpan m_maxCacheAge;
         private readonly MemoryCacheConfigurationSection m_configuration;
 
         // The backing cache
@@ -71,10 +72,10 @@ namespace SanteDB.Caching.Memory
             }
             var config = new NameValueCollection();
             config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 512) * 0.25).ToString());
-            config.Add("PhysicalMemoryLimitPercentage", "20");
-            config.Add("PollingInterval", "00:01:00");
+            //config.Add("PhysicalMemoryLimitPercentage", "20");
+            config.Add("PollingInterval", "00:00:05");
             this.m_cache = new MemoryCache("santedb.adhoc", config, true);
-
+            this.m_maxCacheAge = new TimeSpan(0, 0, (int)this.m_configuration.MaxCacheAge);
 
 
         }
@@ -86,14 +87,21 @@ namespace SanteDB.Caching.Memory
         {
             try
             {
+                var cacheItem = new CacheItem(key);
                 if (value is ICanDeepCopy icdc)
                 {
-                    this.m_cache.Set(key, icdc.DeepCopy(), DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                    cacheItem.Value = icdc.DeepCopy();
                 }
                 else
                 {
-                    this.m_cache.Set(key, (object)value ?? DBNull.Value, DateTimeOffset.Now.AddSeconds(timeout?.TotalSeconds ?? this.m_configuration.MaxCacheAge));
+                    cacheItem.Value = (object)value ?? DBNull.Value; 
                 }
+
+                this.m_cache.Set(cacheItem, new CacheItemPolicy()
+                {
+                    AbsoluteExpiration = DateTimeOffset.Now.Add(timeout ?? this.m_maxCacheAge),
+                    Priority = CacheItemPriority.Default
+                });
             }
             catch (Exception e)
             {
@@ -131,7 +139,7 @@ namespace SanteDB.Caching.Memory
                 {
                     value = (T)data;
                 }
-                return this.m_cache.Contains(key);
+                return data != null || this.m_cache.Contains(key);
             }
             catch (Exception e)
             {

@@ -36,10 +36,14 @@ namespace SanteDB.Caching.Memory
     /// stateful query results (for consistent pagination) for a period of time in transient place.</para>
     /// </remarks>
     [ServiceProvider("Memory-Based Query Persistence Service", Configuration = typeof(MemoryCacheConfigurationSection))]
-    public class MemoryQueryPersistenceService : SanteDB.Core.Services.IQueryPersistenceService
+    public class MemoryQueryPersistenceService : SanteDB.Core.Services.IQueryPersistenceService, IMemoryCache
     {
         /// <inheritdoc/>
         public string ServiceName => "Memory-Based Query Persistence / Continuation Service";
+        
+        /// <inheritdoc/>
+        public string CacheName => "Query";
+
 
         /// <summary>
         /// Memory based query information - metadata about the query stored in the cache
@@ -96,7 +100,7 @@ namespace SanteDB.Caching.Memory
             var config = new NameValueCollection();
             config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 512) * 0.25).ToString());
             config.Add("PhysicalMemoryLimitPercentage", "20");
-            config.Add("PollingInterval", "00:01:00");
+            config.Add("PollingInterval", "00:05:00");
             this.m_cache = new MemoryCache("santedb.query", config);
         }
 
@@ -209,5 +213,18 @@ namespace SanteDB.Caching.Memory
         {
             this.m_cache.Remove($"qry.{queryId}");
         }
+
+        /// <inheritdoc/>
+        public void Trim()
+        {
+            this.m_cache.Trim(50);
+        }
+
+        /// <inheritdoc/>
+        public long Size() => this.m_cache.GetLastSize();
+
+        /// <inheritdoc/>
+        public long Count() => this.m_cache.GetCount();
+
     }
 }

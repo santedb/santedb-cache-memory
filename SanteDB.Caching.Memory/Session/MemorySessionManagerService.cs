@@ -39,7 +39,7 @@ namespace SanteDB.Caching.Memory.Session
     /// <summary>
     /// Represents a <see cref="ISessionProviderService"/> which uses RAM caching
     /// </summary>
-    public class MemorySessionManagerService : ISessionProviderService, ISessionIdentityProviderService
+    public class MemorySessionManagerService : ISessionProviderService, ISessionIdentityProviderService, IMemoryCache
     {
         /// <summary>
         /// Sessions
@@ -59,6 +59,9 @@ namespace SanteDB.Caching.Memory.Session
         /// In-Memory Session Management
         /// </summary>
         public string ServiceName => "Memory Based Session Management";
+        /// <inheritdoc/>
+        public string CacheName => "Session";
+
 
         /// <summary>
         /// DI Constructor
@@ -393,5 +396,22 @@ namespace SanteDB.Caching.Memory.Session
         {
             return this.m_session.OfType<MemorySession>().Where(o => o.NotAfter > DateTimeOffset.Now).OfType<ISession>().ToArray();
         }
+
+        /// <summary>
+        /// Trimming sessions is not really recommended but we can do it 🤷‍
+        /// </summary>
+        public void Trim()
+        {
+            foreach(var s in this.m_session.OfType<MemorySession>().Where(o=>o.NotAfter < DateTime.Now))
+            {
+                this.m_session.Remove(s.Id.HexEncode());
+            }
+        }
+
+        /// <inheritdoc/>
+        public long Size() => this.m_session.GetLastSize();
+
+        /// <inheritdoc/>
+        public long Count() => this.m_session.GetCount();
     }
 }

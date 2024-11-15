@@ -53,7 +53,7 @@ namespace SanteDB.Caching.Memory
     /// that cache entries are valid</para>
     /// </remarks>
     [ServiceProvider("Memory Cache Service", Configuration = typeof(MemoryCacheConfigurationSection))]
-    public class MemoryCacheService : IDataCachingService, IDaemonService
+    public class MemoryCacheService : IDataCachingService, IDaemonService, IMemoryCache
     {
 
         /// <summary>
@@ -65,6 +65,10 @@ namespace SanteDB.Caching.Memory
         /// Gets the service name
         /// </summary>
         public string ServiceName => "Memory Caching Service";
+        
+        /// <inheritdoc/>
+        public string CacheName => "Data";
+
 
         // Memory cache configuration
         private MemoryCacheConfigurationSection m_configuration;
@@ -348,8 +352,22 @@ namespace SanteDB.Caching.Memory
         }
 
         /// <inheritdoc/>
+        public void Trim()
+        {
+            this.m_cache.Trim(50);
+        }
+
+        /// <inheritdoc/>
         /// <threadsafety static="true" instance="true"/>
         public long Size
         { get { return this.m_cache.GetLastSize(); } }
+
+
+        /// <inheritdoc/>
+        long IMemoryCache.Size() => this.m_cache.GetLastSize();
+
+        /// <inheritdoc/>
+        public long Count() => this.m_cache.GetCount();
+
     }
 }

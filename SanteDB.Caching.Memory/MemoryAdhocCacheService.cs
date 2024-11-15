@@ -37,12 +37,15 @@ namespace SanteDB.Caching.Memory
     /// </remarks>
     /// <seealso cref="IAdhocCacheService"/>
     [ServiceProvider("Memory Ad-Hoc Cache Service", Configuration = typeof(MemoryCacheConfigurationSection))]
-    public class MemoryAdhocCacheService : IAdhocCacheService
+    public class MemoryAdhocCacheService : IAdhocCacheService, IMemoryCache
     {
         /// <summary>
         /// Gets the service name
         /// </summary>
         public string ServiceName => "Memory Ad-Hoc Caching Service";
+
+        /// <inheritdoc/>
+        public string CacheName => "Ad-Hoc";
 
         //  trace source
         private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
@@ -174,5 +177,20 @@ namespace SanteDB.Caching.Memory
         {
             return this.m_cache.Contains(key);
         }
+
+        /// <summary>
+        /// Trim the memory cache
+        /// </summary>
+        public void Trim()
+        {
+            this.m_cache.Trim(50);
+        }
+
+        /// <inheritdoc/>
+        public long Size() => this.m_cache.GetLastSize();
+
+        /// <inheritdoc/>
+        public long Count() => this.m_cache.GetCount();
+
     }
 }

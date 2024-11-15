@@ -39,7 +39,7 @@ namespace SanteDB.Caching.Memory.Session
     /// <summary>
     /// Represents a <see cref="ISessionProviderService"/> which uses RAM caching
     /// </summary>
-    public class MemorySessionManagerService : ISessionProviderService, ISessionIdentityProviderService
+    public class MemorySessionManagerService : ISessionProviderService, ISessionIdentityProviderService, IMemoryCache
     {
         /// <summary>
         /// Sessions
@@ -59,6 +59,9 @@ namespace SanteDB.Caching.Memory.Session
         /// In-Memory Session Management
         /// </summary>
         public string ServiceName => "Memory Based Session Management";
+        /// <inheritdoc/>
+        public string CacheName => "Session";
+
 
         /// <summary>
         /// DI Constructor
@@ -123,7 +126,7 @@ namespace SanteDB.Caching.Memory.Session
                 throw new SecuritySessionException(SessionExceptionType.Expired, this.m_localizationService.GetString(ErrorMessageStrings.SESSION_EXPIRE), null);
             }
 
-            return memSession?.Principal;
+            return MemorySessionPrincipal.Create(memSession); ;
         }
 
         /// <inheritdoc/>
@@ -150,7 +153,16 @@ namespace SanteDB.Caching.Memory.Session
             {
                 // Try to hext decode 
                 var decodedSessionToken = this.m_sessionTokenEncoder.ExtractSessionIdentity(tokenPrincipal.AccessToken);
-                var session = new MemorySession(decodedSessionToken, DateTimeOffset.Now, tokenPrincipal.ExpiresAt, tokenPrincipal.RefreshToken != null ? Encoding.UTF8.GetBytes(tokenPrincipal.RefreshToken) : null, tokenPrincipal.Claims.ToArray(), principal);
+                var claims = tokenPrincipal.Claims.Where(c => c.Type != SanteDBClaimTypes.SanteDBScopeClaim).ToList();
+                if (scope == null || scope.Contains("*"))
+                {
+                    claims.AddRange(this.m_pdpService.GetEffectivePolicySet(principal).Where(o => o.Rule == Core.Model.Security.PolicyGrantType.Grant).Select(c => new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, c.Policy.Oid)));
+                }
+                if (scope?.Any(s => !s.Equals("*")) == true) // Demand additional scopes
+                {
+                    claims.AddRange(scope.Where(s => !s.Equals("*")).Select(o => { this.m_pepService.Demand(o, principal); return new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, o); }));
+                }
+                var session = new MemorySession(decodedSessionToken, DateTimeOffset.Now, tokenPrincipal.ExpiresAt, tokenPrincipal.RefreshToken != null ? Encoding.UTF8.GetBytes(tokenPrincipal.RefreshToken) : null, claims.ToArray(), principal);
                 this.m_session.Add(session.Id.HexEncode(), session, tokenPrincipal.ExpiresAt.ToLocalTime());
                 if (session.RefreshToken != null)
                 {
@@ -384,5 +396,22 @@ namespace SanteDB.Caching.Memory.Session
         {
             return this.m_session.OfType<MemorySession>().Where(o => o.NotAfter > DateTimeOffset.Now).OfType<ISession>().ToArray();
         }
+
+        /// <summary>
+        /// Trimming sessions is not really recommended but we can do it 🤷‍
+        /// </summary>
+        public void Trim()
+        {
+            foreach(var s in this.m_session.OfType<MemorySession>().Where(o=>o.NotAfter < DateTime.Now))
+            {
+                this.m_session.Remove(s.Id.HexEncode());
+            }
+        }
+
+        /// <inheritdoc/>
+        public long Size() => this.m_session.GetLastSize();
+
+        /// <inheritdoc/>
+        public long Count() => this.m_session.GetCount();
     }
 }

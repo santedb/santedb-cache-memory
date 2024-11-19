@@ -74,7 +74,7 @@ namespace SanteDB.Caching.Memory
             var config = new NameValueCollection();
             config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 512) * 0.25).ToString());
             //config.Add("PhysicalMemoryLimitPercentage", "20");
-            config.Add("PollingInterval", "00:00:05");
+            config.Add("PollingInterval", "00:00:10");
             this.m_cache = new MemoryCache("santedb.adhoc", config, true);
             this.m_maxCacheAge = new TimeSpan(0, 0, (int)this.m_configuration.MaxCacheAge);
 

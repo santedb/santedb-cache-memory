@@ -27,6 +27,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Runtime.Caching;
+using System.Runtime.InteropServices;
 
 namespace SanteDB.Caching.Memory
 {
@@ -42,7 +43,7 @@ namespace SanteDB.Caching.Memory
     {
         /// <inheritdoc/>
         public string ServiceName => "Memory-Based Query Persistence / Continuation Service";
-        
+
         /// <inheritdoc/>
         public string CacheName => "Query";
 
@@ -100,8 +101,12 @@ namespace SanteDB.Caching.Memory
         public MemoryQueryPersistenceService()
         {
             var config = new NameValueCollection();
+            var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            if (isWindows)
+            {
+                config.Add("PhysicalMemoryLimitPercentage", "20"); // Windows
+            }
             config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 512) * 0.25).ToString());
-            config.Add("PhysicalMemoryLimitPercentage", "20");
             config.Add("PollingInterval", "00:05:00");
             this.m_cache = new MemoryCache("santedb.query", config);
         }

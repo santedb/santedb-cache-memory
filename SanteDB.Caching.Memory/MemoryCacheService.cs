@@ -34,6 +34,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Caching;
 using System.Xml.Serialization;
+using System.Runtime.InteropServices;
 
 namespace SanteDB.Caching.Memory
 {
@@ -67,7 +68,7 @@ namespace SanteDB.Caching.Memory
         /// Gets the service name
         /// </summary>
         public string ServiceName => "Memory Caching Service";
-        
+
         /// <inheritdoc/>
         public string CacheName => "Data";
 
@@ -133,8 +134,12 @@ namespace SanteDB.Caching.Memory
                 };
             }
             var config = new NameValueCollection();
+            var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            if (isWindows)
+            {
+                config.Add("PhysicalMemoryLimitPercentage", "50"); // Windows
+            }
             config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 512) * 0.5).ToString());
-            config.Add("PhysicalMemoryLimitPercentage", "50");
             config.Add("PollingInterval", "00:01:00");
 
             this.m_cache = new MemoryCache("santedb", config);

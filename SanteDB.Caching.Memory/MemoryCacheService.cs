@@ -143,6 +143,7 @@ namespace SanteDB.Caching.Memory
             config.Add("PollingInterval", "00:01:00");
 
             this.m_cache = new MemoryCache("santedb", config);
+            
         }
 
         /// <inheritdoc/>
@@ -297,7 +298,15 @@ namespace SanteDB.Caching.Memory
 
             }
 
-            this.m_cache.Set(data.Key.ToString(), dataClone, DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge));
+            var cacheItem = new CacheItem(data.Key.ToString());
+            cacheItem.Value = dataClone;
+
+            this.m_cache.Set(cacheItem, new CacheItemPolicy()
+            {
+                AbsoluteExpiration = DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge),
+                Priority = CacheItemPriority.Default
+            });
+
             // If this is a relationship class we remove the source entity from the cache
             if (data is ITargetedAssociation targetedAssociation)
             {

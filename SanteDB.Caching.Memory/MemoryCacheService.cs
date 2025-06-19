@@ -35,6 +35,7 @@ using System.Reflection;
 using System.Runtime.Caching;
 using System.Xml.Serialization;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace SanteDB.Caching.Memory
 {
@@ -264,67 +265,73 @@ namespace SanteDB.Caching.Memory
         /// <threadsafety static="true" instance="true"/>
         public void Add(IdentifiedData data)
         {
-
-            this.EnsureCacheConsistency(data);
-            // if the data is null, continue
-            if (data == null || !data.Key.HasValue ||
-                    (data as BaseEntityData)?.ObsoletionTime.HasValue == true ||
-                    this.m_nonCached.Contains(data.GetType()))
+            try
             {
-                return;
-            }
-            else if (data.GetType().GetCustomAttribute<NonCachedAttribute>() != null)
-            {
-                this.m_nonCached.Add(data.GetType());
-                return;
-            }
-
-            var exist = this.m_cache.Get(data.Key.ToString());
-
-            var dataClone = data.DeepCopy() as IdentifiedData;
-            dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
-            dataClone.AddAnnotation(data.GetAnnotations<LoadMode>().FirstOrDefault());
-
-            if (dataClone is ITaggable taggable)
-            {
-                // TODO: Put this as a constant
-                // Don't cache generated data
-                if (taggable.GetTag("$generated") == "true")
+                this.EnsureCacheConsistency(data);
+                // if the data is null, continue
+                if (data == null || !data.Key.HasValue ||
+                        (data as BaseEntityData)?.ObsoletionTime.HasValue == true ||
+                        this.m_nonCached.Contains(data.GetType()))
                 {
                     return;
                 }
+                else if (data.GetType().GetCustomAttribute<NonCachedAttribute>() != null)
+                {
+                    this.m_nonCached.Add(data.GetType());
+                    return;
+                }
 
-                taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") && o.TagKey != SystemTagNames.DcdrRefetchTag);
+                var exist = this.m_cache.Get(data.Key.ToString());
 
+                var dataClone = data.DeepCopy() as IdentifiedData;
+                dataClone.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
+                dataClone.AddAnnotation(data.GetAnnotations<LoadMode>().FirstOrDefault());
+
+                if (dataClone is ITaggable taggable)
+                {
+                    // TODO: Put this as a constant
+                    // Don't cache generated data
+                    if (taggable.GetTag("$generated") == "true")
+                    {
+                        return;
+                    }
+
+                    taggable.RemoveAllTags(o => o.TagKey.StartsWith("$") && o.TagKey != SystemTagNames.DcdrRefetchTag);
+
+                }
+
+                var cacheItem = new CacheItem(data.Key.ToString());
+                cacheItem.Value = dataClone;
+
+                this.m_cache.Set(cacheItem, new CacheItemPolicy()
+                {
+                    AbsoluteExpiration = DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge),
+                    Priority = CacheItemPriority.Default
+                });
+
+                // If this is a relationship class we remove the source entity from the cache
+                if (data is ITargetedAssociation targetedAssociation)
+                {
+                    this.m_cache.Remove(targetedAssociation.SourceEntityKey.ToString());
+                    this.m_cache.Remove(targetedAssociation.TargetEntityKey.ToString());
+                }
+                else if (data is ISimpleAssociation simpleAssociation)
+                {
+                    this.m_cache.Remove(simpleAssociation.SourceEntityKey.ToString());
+                }
+
+                if (exist != null)
+                {
+                    this.Updated?.Invoke(this, new DataCacheEventArgs(data));
+                }
+                else
+                {
+                    this.Added?.Invoke(this, new DataCacheEventArgs(data));
+                }
             }
-
-            var cacheItem = new CacheItem(data.Key.ToString());
-            cacheItem.Value = dataClone;
-
-            this.m_cache.Set(cacheItem, new CacheItemPolicy()
+            catch(Exception ex)
             {
-                AbsoluteExpiration = DateTimeOffset.Now.AddSeconds(this.m_configuration.MaxCacheAge),
-                Priority = CacheItemPriority.Default
-            });
-
-            // If this is a relationship class we remove the source entity from the cache
-            if (data is ITargetedAssociation targetedAssociation)
-            {
-                this.m_cache.Remove(targetedAssociation.SourceEntityKey.ToString());
-                this.m_cache.Remove(targetedAssociation.TargetEntityKey.ToString());
-            }
-            else if (data is ISimpleAssociation simpleAssociation)
-            {
-                this.m_cache.Remove(simpleAssociation.SourceEntityKey.ToString());
-            }
-
-            if (exist != null)
-            {
-                this.Updated?.Invoke(this, new DataCacheEventArgs(data));
-            }
-            else
-            {
-                this.Added?.Invoke(this, new DataCacheEventArgs(data));
+                this.m_tracer.TraceWarning("Could not cache object {0} - {1}", data, ex);
             }
         }
 

@@ -155,15 +155,23 @@ namespace SanteDB.Caching.Memory.Session
             {
                 // Try to hext decode 
                 var decodedSessionToken = this.m_sessionTokenEncoder.ExtractSessionIdentity(tokenPrincipal.AccessToken);
-                var claims = tokenPrincipal.Claims.Where(c => c.Type != SanteDBClaimTypes.SanteDBScopeClaim).ToList();
-                if (scope == null || scope.Contains("*"))
+                var claims = tokenPrincipal.Claims.ToList();
+
+                // No scope provided by the upstream so we get the effective policy set
+                if(!tokenPrincipal.Claims.Any(c=>c.Type == SanteDBClaimTypes.SanteDBScopeClaim) && (scope == null || scope.Contains("*")))
                 {
                     claims.AddRange(this.m_pdpService.GetEffectivePolicySet(principal).Where(o => o.Rule == Core.Model.Security.PolicyGrantType.Grant).Select(c => new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, c.Policy.Oid)));
                 }
-                if (scope?.Any(s => !s.Equals("*")) == true) // Demand additional scopes
+                else if(scope == null || scope.Contains("*")) // Validate the local environment doesn't have any other restrictions that the upstream granted
+                {
+                    claims.RemoveAll(o => o.Type == SanteDBClaimTypes.SanteDBScopeClaim && !this.m_pepService.SoftDemand(o.Value, principal)); 
+                }
+
+                if (scope?.Any(s => !s.Equals("*")) == true) // Demand additional scopes - ones that aren't on the principal (override check)
                 {
                     claims.AddRange(scope.Where(s => !s.Equals("*")).Select(o => { this.m_pepService.Demand(o, principal); return new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, o); }));
                 }
+
                 var session = new MemorySession(decodedSessionToken, DateTimeOffset.Now, tokenPrincipal.ExpiresAt, tokenPrincipal.RefreshToken != null ? Encoding.UTF8.GetBytes(tokenPrincipal.RefreshToken) : null, claims.ToArray(), principal);
                 this.m_session.Add(session.Id.HexEncode(), session, tokenPrincipal.ExpiresAt.ToLocalTime());
                 if (session.RefreshToken != null)

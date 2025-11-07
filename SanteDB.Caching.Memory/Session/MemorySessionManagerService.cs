@@ -104,7 +104,10 @@ namespace SanteDB.Caching.Memory.Session
             if (memSession != null)
             {
                 this.m_session.Remove(session.Id.HexEncode());
-                this.m_session.Remove(session.RefreshToken.HexEncode());
+                if (session.RefreshToken != null)
+                {
+                    this.m_session.Remove(session.RefreshToken.HexEncode());
+                }
                 this.m_pdpService?.ClearCache(memSession.Principal);
                 this.Abandoned?.Invoke(this, new SessionEstablishedEventArgs(memSession.Principal, memSession, true, false, null, null));
             }

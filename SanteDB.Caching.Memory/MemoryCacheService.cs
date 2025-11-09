@@ -191,39 +191,15 @@ namespace SanteDB.Caching.Memory
                         }
                     }
                     break;
+                case IHasRelationships ihr: // Remove all related objects from the cache if they exist 
+                    ihr.Relationships?.ForEach(r => this.Remove(r.TargetEntityKey.GetValueOrDefault()));
+                    break;
+                case ITargetedAssociation ta:
+                    this.Remove(ta.SourceEntityKey.GetValueOrDefault());
+                    this.Remove(ta.TargetEntityKey.GetValueOrDefault());
+                    break;
                 case ISimpleAssociation sa:
-                    if (data.BatchOperation != Core.Model.DataTypes.BatchOperationType.Auto)
-                    {
-                        var host = this.GetCacheItem(sa.SourceEntityKey.GetValueOrDefault()); // Cache remove the source item
-                        if (host != null) // hosting type is cached
-                        {
-                            foreach (var prop in host.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(o => o.PropertyType.StripGeneric().IsAssignableFrom(data.GetType())))
-                            {
-                                var value = host.LoadProperty(prop.Name) as IList;
-                                if (value is IList list)
-                                {
-                                    var exist = list.OfType<IdentifiedData>().FirstOrDefault(o => o.SemanticEquals(data));
-                                    if (exist != null)
-                                    {
-                                        list.Remove(exist);
-                                    }
-
-                                    // Re-add
-                                    if (data.BatchOperation != Core.Model.DataTypes.BatchOperationType.Delete)
-                                    {
-                                        list.Add(data);
-                                    }
-                                }
-                            }
-
-                            if (host is ITaggable ite)
-                            {
-                                ite.AddTag(SystemTagNames.DcdrRefetchTag, "true");
-                            }
-                            this.Add(host as IdentifiedData); // refresh 
-
-                        }
-                    }
+                    this.Remove(sa.SourceEntityKey.GetValueOrDefault());
                     break;
             }
             //data.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
@@ -269,9 +245,10 @@ namespace SanteDB.Caching.Memory
             {
                 this.EnsureCacheConsistency(data);
                 // if the data is null, continue
-                if (data == null || !data.Key.HasValue ||
-                        (data as BaseEntityData)?.ObsoletionTime.HasValue == true ||
-                        this.m_nonCached.Contains(data.GetType()))
+                if (data == null || 
+                    !data.Key.HasValue ||
+                    (data as BaseEntityData)?.ObsoletionTime.HasValue == true ||
+                    this.m_nonCached.Contains(data.GetType()))
                 {
                     return;
                 }

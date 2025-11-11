@@ -36,6 +36,9 @@ using System.Runtime.Caching;
 using System.Xml.Serialization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using SanteDB.Core.Model.Acts;
+using SanteDB.Core.Model.Entities;
+using SanteDB.Core.Model.DataTypes;
 
 namespace SanteDB.Caching.Memory
 {
@@ -144,7 +147,7 @@ namespace SanteDB.Caching.Memory
             config.Add("PollingInterval", "00:01:00");
 
             this.m_cache = new MemoryCache("santedb", config);
-            
+
         }
 
         /// <inheritdoc/>
@@ -191,17 +194,14 @@ namespace SanteDB.Caching.Memory
                         }
                     }
                     break;
-                case IHasRelationships ihr: // Remove all related objects from the cache if they exist 
-                    ihr.Relationships?.ForEach(r => this.Remove(r.TargetEntityKey.GetValueOrDefault()));
-                    break;
-                case ITargetedAssociation ta:
-                    this.Remove(ta.SourceEntityKey.GetValueOrDefault());
-                    this.Remove(ta.TargetEntityKey.GetValueOrDefault());
-                    break;
                 case ISimpleAssociation sa:
-                    this.Remove(sa.SourceEntityKey.GetValueOrDefault());
+                    if (sa is IdentifiedData id && id.BatchOperation != BatchOperationType.Ignore && id.BatchOperation != BatchOperationType.Auto)
+                    {
+                        this.Remove(sa.SourceEntityKey.GetValueOrDefault()); // force a reload of the source object from disk
+                    }
                     break;
             }
+            //data.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
             //data.BatchOperation = Core.Model.DataTypes.BatchOperationType.Auto;
 
         }
@@ -245,14 +245,14 @@ namespace SanteDB.Caching.Memory
             {
                 this.EnsureCacheConsistency(data);
                 // if the data is null, continue
-                if (data == null || 
+                if (data == null ||
                     !data.Key.HasValue ||
                     (data as BaseEntityData)?.ObsoletionTime.HasValue == true ||
                     this.m_nonCached.Contains(data.GetType()))
                 {
                     return;
                 }
-                else if(data is IHasPolicies ihp && ihp.Policies?.Any() == true)
+                else if (data is IHasPolicies ihp && ihp.Policies?.Any() == true)
                 {
                     return;
                 }
@@ -310,7 +310,7 @@ namespace SanteDB.Caching.Memory
                     this.Added?.Invoke(this, new DataCacheEventArgs(data));
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 this.m_tracer.TraceWarning("Could not cache object {0} - {1}", data, ex);
             }

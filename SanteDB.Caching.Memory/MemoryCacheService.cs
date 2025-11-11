@@ -36,6 +36,9 @@ using System.Runtime.Caching;
 using System.Xml.Serialization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using SanteDB.Core.Model.Acts;
+using SanteDB.Core.Model.Entities;
+using SanteDB.Core.Model.DataTypes;
 
 namespace SanteDB.Caching.Memory
 {
@@ -190,9 +193,6 @@ namespace SanteDB.Caching.Memory
                             this.Add(itm);
                         }
                     }
-                    break;
-                case IHasRelationships ihr: // Remove all related objects from the cache if they exist 
-                    ihr.Relationships?.ForEach(r => this.Remove(r.TargetEntityKey.GetValueOrDefault()));
                     break;
                 case ITargetedAssociation ta:
                     this.Remove(ta.SourceEntityKey.GetValueOrDefault());

@@ -158,7 +158,7 @@ namespace SanteDB.Caching.Memory
             this.Starting?.Invoke(this, EventArgs.Empty);
 
             // Look for non-cached types
-            foreach (var itm in typeof(IdentifiedData).Assembly.GetTypes().Where(o => o.GetCustomAttribute<NonCachedAttribute>() != null))
+            foreach (var itm in typeof(IdentifiedData).Assembly.GetTypes().Where(o => o.GetCustomAttribute<NonCachedAttribute>() != null || o.GetCustomAttribute<XmlRootAttribute>() == null))
             {
                 this.m_nonCached.Add(itm);
             }

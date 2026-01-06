@@ -343,6 +343,10 @@ namespace SanteDB.Caching.Memory.Session
 
                     // Extend 
                     var expiration = DateTimeOffset.Now.Add(this.m_securityConfig.GetSecurityPolicy<TimeSpan>(SecurityPolicyIdentification.SessionLength, new TimeSpan(1, 0, 0)));
+                    if(newPrincipal is ITokenPrincipal itp) // Pass the expiration of the token principal to our session
+                    {
+                        expiration = itp.ExpiresAt;
+                    }
                     session = new MemorySession(Guid.NewGuid().ToByteArray(), DateTimeOffset.Now, expiration, Guid.NewGuid().ToByteArray(), session.Claims, newPrincipal);
 
                     this.Extended?.Invoke(this, new SessionEstablishedEventArgs(null, session, true, false,

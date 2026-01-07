@@ -333,9 +333,11 @@ namespace SanteDB.Caching.Memory
         {
             if (entry != null)
             {
+                var originalOperation = entry.BatchOperation;
                 this.m_cache?.Remove(entry.Key.ToString());
                 entry.BatchOperation = Core.Model.DataTypes.BatchOperationType.Delete;
                 this.EnsureCacheConsistency(entry);
+                entry.BatchOperation = originalOperation;
                 this.Removed?.Invoke(this, new DataCacheEventArgs(entry));
             }
         }

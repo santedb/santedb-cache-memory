@@ -168,9 +168,12 @@ namespace SanteDB.Caching.Memory.Session
                 else if(scope == null || scope.Contains("*")) // Validate the local environment doesn't have any other restrictions that the upstream granted
                 {
                     claims.RemoveAll(o => o.Type == SanteDBClaimTypes.SanteDBScopeClaim && !this.m_pepService.SoftDemand(o.Value, principal));
-                    
-                    //// Allow the local policy decision service to amend our list 
-                    //claims.AddRange(this.m_pdpService.GetEffectivePolicySet(principal).Where(o => o.Rule == Core.Model.Security.PolicyGrantType.Grant && !tokenPrincipal.HasClaim(p=>p.Type == SanteDBClaimTypes.SanteDBGrantedPolicyClaim && p.Value == o.Policy.Oid)).Select(c => new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, c.Policy.Oid)));
+
+                    if (this.m_pdpService is IPolicyDecisionServiceEx pdpex)
+                    {
+                        // Allow the local policy decision service to amend our list 
+                        claims.AddRange(pdpex.ExpandInferredPolicies(claims.Where(o=>o.Type == SanteDBClaimTypes.SanteDBGrantedPolicyClaim).Select(o=>o.Value).ToArray()).Select(c => new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, c)));
+                    }
                 }
 
                 if (scope?.Any(s => !s.Equals("*")) == true) // Demand additional scopes - ones that aren't on the principal (override check)

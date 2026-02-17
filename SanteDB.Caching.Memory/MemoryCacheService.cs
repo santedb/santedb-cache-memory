@@ -252,7 +252,8 @@ namespace SanteDB.Caching.Memory
                 {
                     return;
                 }
-                else if (data is IHasPolicies ihp && ihp.Policies?.Any() == true)
+                else if (data is IHasPolicies ihp && ihp.Policies?.Any() == true ||
+                    data is ITaggable tb && tb.GetTag(SystemTagNames.PrivacyMaskingTag) != null)
                 {
                     return;
                 }

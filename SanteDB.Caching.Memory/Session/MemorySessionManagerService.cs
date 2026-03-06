@@ -33,6 +33,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Caching;
 using System.Security;
+using System.Security.Claims;
 using System.Security.Principal;
 using System.Text;
 
@@ -153,26 +154,44 @@ namespace SanteDB.Caching.Memory.Session
             {
                 scope = new string[] { "*" };
             }
-
+            
             if (principal is ITokenPrincipal tokenPrincipal) // We got this from the upstream so we want to just store it
             {
+                if (!isOverride &&
+                       !this.m_securityConfig.GetSecurityPolicy(SecurityPolicyIdentification.AllowNonAssignedUsersToLogin, true) &&
+                       !(principal.Identity is IDeviceIdentity || principal.Identity is IApplicationIdentity) &&
+                       !this.m_pepService.SoftDemand(PermissionPolicyIdentifiers.LoginAnywhere, principal))
+                {
+                    var assignedFacility = this.m_securityConfig.GetSecurityPolicy<Guid?>(SecurityPolicyIdentification.AssignedFacilityUuid, null);
+                    var permittedFacilities = assignedFacility.HasValue ? this.m_securityConfig.GetSecurityPolicy<List<String>>(SecurityPolicyIdentification.PermittedFacilities, new List<String>() { assignedFacility.ToString() }).Select(o => Guid.Parse(o)).ToArray() : null;
+                    var facilityClaims = tokenPrincipal.FindAll(SanteDBClaimTypes.XspaFacilityClaim);
+
+                    // Validate the user is permitted on this device
+                    if (permittedFacilities != null &&
+                               !facilityClaims.Any(c => permittedFacilities.Contains(Guid.Parse(c.Value))))
+                    {
+                        throw new SecuritySessionException(SessionExceptionType.NotEstablished, this.m_localizationService.GetString(ErrorMessageStrings.SESSION_ASSIGNED_FACILITY_MISMATCH, new { allowed = String.Join(" or ", permittedFacilities), assigned = String.Join(" or ", facilityClaims.Select(o => o.Value)) }), null);
+                    }
+
+                }
+
                 // Try to hext decode 
                 var decodedSessionToken = this.m_sessionTokenEncoder.ExtractSessionIdentity(tokenPrincipal.AccessToken);
                 var claims = tokenPrincipal.Claims.ToList();
 
                 // No scope provided by the upstream so we get the effective policy set
-                if(!tokenPrincipal.Claims.Any(c=>c.Type == SanteDBClaimTypes.SanteDBScopeClaim) && (scope == null || scope.Contains("*")))
+                if (!tokenPrincipal.Claims.Any(c => c.Type == SanteDBClaimTypes.SanteDBScopeClaim) && (scope == null || scope.Contains("*")))
                 {
                     claims.AddRange(this.m_pdpService.GetEffectivePolicySet(principal).Where(o => o.Rule == Core.Model.Security.PolicyGrantType.Grant).Select(c => new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, c.Policy.Oid)));
                 }
-                else if(scope == null || scope.Contains("*")) // Validate the local environment doesn't have any other restrictions that the upstream granted
+                else if (scope == null || scope.Contains("*")) // Validate the local environment doesn't have any other restrictions that the upstream granted
                 {
                     claims.RemoveAll(o => o.Type == SanteDBClaimTypes.SanteDBScopeClaim && !this.m_pepService.SoftDemand(o.Value, principal));
 
                     if (this.m_pdpService is IPolicyDecisionServiceEx pdpex)
                     {
                         // Allow the local policy decision service to amend our list 
-                        claims.AddRange(pdpex.ExpandInferredPolicies(claims.Where(o=>o.Type == SanteDBClaimTypes.SanteDBGrantedPolicyClaim).Select(o=>o.Value).ToArray()).Select(c => new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, c)));
+                        claims.AddRange(pdpex.ExpandInferredPolicies(claims.Where(o => o.Type == SanteDBClaimTypes.SanteDBGrantedPolicyClaim).Select(o => o.Value).ToArray()).Select(c => new SanteDBClaim(SanteDBClaimTypes.SanteDBScopeClaim, c)));
                     }
                 }
 
@@ -346,7 +365,7 @@ namespace SanteDB.Caching.Memory.Session
 
                     // Extend 
                     var expiration = DateTimeOffset.Now.Add(this.m_securityConfig.GetSecurityPolicy<TimeSpan>(SecurityPolicyIdentification.SessionLength, new TimeSpan(1, 0, 0)));
-                    if(newPrincipal is ITokenPrincipal itp) // Pass the expiration of the token principal to our session
+                    if (newPrincipal is ITokenPrincipal itp) // Pass the expiration of the token principal to our session
                     {
                         expiration = itp.ExpiresAt;
                     }
@@ -425,7 +444,7 @@ namespace SanteDB.Caching.Memory.Session
         /// </summary>
         public void Trim()
         {
-            foreach(var s in this.m_session.OfType<MemorySession>().Where(o=>o.NotAfter < DateTime.Now))
+            foreach (var s in this.m_session.OfType<MemorySession>().Where(o => o.NotAfter < DateTime.Now))
             {
                 this.m_session.Remove(s.Id.HexEncode());
             }

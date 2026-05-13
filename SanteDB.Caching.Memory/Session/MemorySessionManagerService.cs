@@ -395,6 +395,10 @@ namespace SanteDB.Caching.Memory.Session
             }
         }
 
+
+        /// <inheritdoc/>
+        public void Clear() => this.Trim();
+
         /// <inheritdoc/>
         public ISession Get(byte[] sessionId, bool allowExpired = false)
         {

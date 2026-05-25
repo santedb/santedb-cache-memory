@@ -68,7 +68,10 @@ namespace SanteDB.Caching.Memory.Jobs
         public bool CanCancel => false;
 
         /// <inheritdoc/>
-        public IDictionary<string, Type> Parameters => new Dictionary<String, Type>();
+        public IDictionary<string, Type> Parameters => new Dictionary<String, Type>()
+        {
+            { "purge", typeof(Boolean) }
+        };
 
         /// <inheritdoc/>
         public void Cancel()
@@ -84,10 +87,18 @@ namespace SanteDB.Caching.Memory.Jobs
             try
             {
                 int i = 0;
+                bool trim = parameters.Length > 0 ? Convert.ToBoolean(parameters[0]) : false;
                 foreach (var itm in this.m_cacheServices)
                 {
                     this.m_stateManager.SetProgress(this, $"Trimming {itm.CacheName}", (float)i++ / (float)this.m_cacheServices.Length);
-                    itm.Trim();
+                    if (trim)
+                    {
+                        itm.Clear();
+                    }
+                    else
+                    {
+                        itm.Trim();
+                    }
                 }
                 this.m_stateManager.SetState(this, JobStateType.Completed);
             }

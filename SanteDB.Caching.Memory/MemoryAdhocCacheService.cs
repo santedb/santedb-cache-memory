@@ -153,6 +153,9 @@ namespace SanteDB.Caching.Memory
             }
         }
 
+        /// <inheritdoc/>
+        public void Clear() => this.m_cache.Trim(100);
+
         /// <summary>
         /// Remove the specified key
         /// </summary>

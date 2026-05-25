@@ -42,6 +42,11 @@ namespace SanteDB.Caching.Memory
         void Trim();
 
         /// <summary>
+        /// Clear the cache
+        /// </summary>
+        void Clear();
+
+        /// <summary>
         /// Get the size of the memory cache in entries
         /// </summary>
         long Size();

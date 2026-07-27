@@ -18,14 +18,11 @@
  * User: fyfej
  * Date: 2024-12-12
  */
-using SanteDB.Core.Data.Quality;
 using SanteDB.Core.Jobs;
 using SanteDB.Core.Services;
-using SharpCompress;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.Caching.Memory.Jobs
 {

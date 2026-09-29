@@ -164,7 +164,7 @@ namespace SanteDB.Caching.Memory.Session
                 {
                     var assignedFacility = this.m_securityConfig.GetSecurityPolicy<Guid?>(SecurityPolicyIdentification.AssignedFacilityUuid, null);
                     var permittedFacilities = assignedFacility.HasValue ? this.m_securityConfig.GetSecurityPolicy<List<String>>(SecurityPolicyIdentification.PermittedFacilities, new List<String>() { assignedFacility.ToString() }).Select(o => Guid.Parse(o)).ToArray() : null;
-                    var facilityClaims = tokenPrincipal.FindAll(SanteDBClaimTypes.XspaFacilityClaim);
+                    var facilityClaims = tokenPrincipal.FindAll(SanteDBClaimTypes.XspaOrganizationIdClaim);
 
                     // Validate the user is permitted on this device
                     if (permittedFacilities != null &&

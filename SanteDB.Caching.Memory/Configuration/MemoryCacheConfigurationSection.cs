@@ -36,7 +36,7 @@ namespace SanteDB.Caching.Memory.Configuration
         /// </summary>
         public MemoryCacheConfigurationSection()
         {
-            this.MaxCacheSize = 10;
+            this.MaxCacheSize = 1024;
             this.MaxCacheAge = 60;
             this.MaxQueryAge = 3600;
         }

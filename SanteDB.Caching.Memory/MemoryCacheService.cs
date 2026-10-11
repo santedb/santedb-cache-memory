@@ -143,8 +143,9 @@ namespace SanteDB.Caching.Memory
             {
                 config.Add("PhysicalMemoryLimitPercentage", "50"); // Windows
             }
-            config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 512) * 0.5).ToString());
+            config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 1024) * 0.5).ToString());
             config.Add("PollingInterval", "00:01:00");
+            this.m_tracer.TraceInfo("Configuring `santedb` settings: {0}", config.ToHttpString());
 
             this.m_cache = new MemoryCache("santedb", config);
 

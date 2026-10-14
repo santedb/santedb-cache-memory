@@ -82,15 +82,31 @@ namespace SanteDB.Caching.Memory
             public DateTime CreationTime { get; private set; }
 
             /// <summary>
+            /// The time that the result set last had an object fetched
+            /// </summary>
+            public DateTime LastReadTime { get; private set; }
+
+            /// <summary>
             /// Get or sets the key
             /// </summary>
             public Guid Key { get; set; }
+
+            /// <summary>
+            /// Update the last read time
+            /// </summary>
+            public void Touch() => this.LastReadTime = DateTime.Now;
+
+            /// <inheritdoc/>
+            public override string ToString() => $"{this.Key} (TAG={this.QueryTag}";
         }
 
         //  trace source
         private readonly Tracer m_tracer = new Tracer(MemoryCacheConstants.TraceSourceName);
 
-        private MemoryCacheConfigurationSection m_configuration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<MemoryCacheConfigurationSection>();
+        // CAche policy
+        private readonly CacheItemPolicy m_cachePolicy;
+
+        private MemoryCacheConfigurationSection m_configuration;
 
         // Cache backing
         private MemoryCache m_cache;
@@ -98,17 +114,37 @@ namespace SanteDB.Caching.Memory
         /// <summary>
         /// Create new persistence
         /// </summary>
-        public MemoryQueryPersistenceService()
+        public MemoryQueryPersistenceService(IConfigurationManager configurationManager)
         {
+            this.m_configuration = configurationManager.GetSection<MemoryCacheConfigurationSection>() ?? new MemoryCacheConfigurationSection();
             var config = new NameValueCollection();
             var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
             if (isWindows)
             {
                 config.Add("PhysicalMemoryLimitPercentage", "25"); // Windows
             }
-            config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 512) * 0.25).ToString());
+            config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 1024) * 0.25).ToString());
             config.Add("PollingInterval", "00:05:00");
+            this.m_tracer.TraceInfo("Configuring `santedb.query` settings: {0}", config.ToHttpString());
+
             this.m_cache = new MemoryCache("santedb.query", config);
+            this.m_cachePolicy = new CacheItemPolicy()
+            {
+                SlidingExpiration = new TimeSpan(TimeSpan.TicksPerSecond * this.m_configuration.MaxQueryAge),
+                RemovedCallback = (o) =>
+                {
+                    if (o.RemovedReason == CacheEntryRemovedReason.Evicted && o.CacheItem.Value is MemoryQueryInfo mq &&
+                            DateTime.Now.Subtract(mq.LastReadTime).TotalSeconds < this.m_configuration.MaxQueryAge)
+                    {
+                        this.m_tracer.TraceWarning("Re-register query for {0}", o.CacheItem.Value);
+                        this.m_cache.Set(o.CacheItem, this.m_cachePolicy);
+                    }
+                    else
+                    {
+                        this.m_tracer.TraceInfo("Query {0} was removed from cache due to {1}", o.CacheItem.Value, o.RemovedReason);
+                    }
+                }
+            };
         }
 
         /// <inheritdoc/>
@@ -147,6 +183,7 @@ namespace SanteDB.Caching.Memory
             {
                 lock (retVal.Results)
                 {
+                    retVal.Touch();
                     return retVal.Results.ToArray().Distinct().Skip(startRecord).Take(nRecords).OfType<Guid>().ToArray();
                 }
             }
@@ -193,10 +230,7 @@ namespace SanteDB.Caching.Memory
                 Results = results.Select(o => o).ToList(),
                 TotalResults = totalResults,
                 Key = queryId
-            }, new CacheItemPolicy()
-            {
-                SlidingExpiration = new TimeSpan(0, 0, this.m_configuration?.MaxQueryAge ?? 3600)
-            });
+            }, this.m_cachePolicy);
             return true;
         }
 

@@ -103,7 +103,7 @@ namespace SanteDB.Caching.Memory.Docker
                 };
                 configuration.AddSection(memSetting);
             }
-            memSetting.MaxQueryAge = memSetting.MaxCacheAge = (long)maxAgeTs.TotalSeconds;
+            memSetting.MaxQueryAge = memSetting.MaxCacheAge = (int)maxAgeTs.TotalSeconds;
 
             // Add services
             var serviceConfiguration = configuration.GetSection<ApplicationServiceContextConfigurationSection>().ServiceProviders;

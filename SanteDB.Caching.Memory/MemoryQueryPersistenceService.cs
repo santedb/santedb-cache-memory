@@ -121,7 +121,7 @@ namespace SanteDB.Caching.Memory
             var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
             if (isWindows)
             {
-                config.Add("PhysicalMemoryLimitPercentage", "20"); // Windows
+                config.Add("PhysicalMemoryLimitPercentage", "25"); // Windows
             }
             config.Add("CacheMemoryLimitMegabytes", Math.Truncate((this.m_configuration?.MaxCacheSize ?? 1024) * 0.25).ToString());
             config.Add("PollingInterval", "00:05:00");
@@ -178,8 +178,8 @@ namespace SanteDB.Caching.Memory
         /// <inheritdoc/>
         public IEnumerable<Guid> GetQueryResults(Guid queryId, int startRecord, int nRecords)
         {
-            var cacheResult = this.m_cache.Get($"qry.{queryId}");
-            if (cacheResult is MemoryQueryInfo retVal)
+            var cacheResult = this.m_cache.GetCacheItem($"qry.{queryId}");
+            if (cacheResult.Value is MemoryQueryInfo retVal)
             {
                 lock (retVal.Results)
                 {

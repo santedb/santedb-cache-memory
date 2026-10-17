@@ -51,12 +51,12 @@ namespace SanteDB.Caching.Memory.Configuration
         /// Gets or sets the maximum age of items in the cache
         /// </summary>
         [XmlAttribute("maxAge"), DisplayName("Max Cache Age (S)"), Description("Sets the maximum length of time that an object may remain in the in-process memory cache before it is unoladed")]
-        public long MaxCacheAge { get; set; }
+        public int MaxCacheAge { get; set; }
 
         /// <summary>
         /// Gets or sets the maximum age of stateful queries.
         /// </summary>
         [XmlAttribute("maxQueryAge"), DisplayName("Max Query Age (S)"), Description("Sets the maximum length of time (in seconds) a stateful query is retained in the in-process memory cache")]
-        public long MaxQueryAge { get; set; }
+        public int MaxQueryAge { get; set; }
     }
 }
